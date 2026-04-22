@@ -1,0 +1,18 @@
+# UE build products
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+*.pdb
+
+# IDE
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.VC.db
+
+# OS
+.DS_Store
+Thumbs.db

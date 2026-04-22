@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Map Utils",
+	"Description": "Level designer utilities: validators, analyzers, and fixups for UObject property integrity in levels.",
+	"Category": "Editor",
+	"CreatedBy": "hchia93",
+	"CreatedByURL": "https://github.com/hchia93/ue-map-utils",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "https://github.com/hchia93/ue-map-utils/issues",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EnabledByDefault": false,
+	"Modules": [
+		{
+			"Name": "MapUtils",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
