@@ -55,8 +55,7 @@ namespace
             UStaticMesh* Mesh = MeshComp->GetStaticMesh();
             if (!Mesh)
             {
-                UE_LOG(LogMapUtils, Warning,
-                    TEXT("BuildCandidates: skipping %s (no StaticMesh)"), *Actor->GetName());
+                UE_LOG(LogMapUtils, Warning, TEXT("BuildCandidates: skipping %s (no StaticMesh)"), *Actor->GetName());
                 continue;
             }
 
@@ -195,8 +194,7 @@ FMapUtilsBlockingVolumeConvertResult FMapUtilsBlockingVolumeOps::ConvertActorsTo
     TArray<FCandidate> Candidates = BuildCandidates(Actors);
     if (Candidates.IsEmpty())
     {
-        UE_LOG(LogMapUtils, Warning,
-            TEXT("ConvertActorsToBlockingVolumes: no valid AStaticMeshActor with mesh in input."));
+        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: no valid AStaticMeshActor with mesh in input."));
         return Result;
     }
 
@@ -204,15 +202,13 @@ FMapUtilsBlockingVolumeConvertResult FMapUtilsBlockingVolumeOps::ConvertActorsTo
     ULevel* TargetLevel = Candidates[0].Actor->GetLevel();
     if (!World || !TargetLevel)
     {
-        UE_LOG(LogMapUtils, Warning,
-            TEXT("ConvertActorsToBlockingVolumes: first actor has no world or level."));
+        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: first actor has no world or level."));
         return Result;
     }
 
     if (!World->IsEditorWorld())
     {
-        UE_LOG(LogMapUtils, Warning,
-            TEXT("ConvertActorsToBlockingVolumes: not editor world, aborting."));
+        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: not editor world, aborting."));
         return Result;
     }
 
@@ -263,10 +259,7 @@ FMapUtilsBlockingVolumeConvertResult FMapUtilsBlockingVolumeOps::ConvertActorsTo
 
     Result.bSuccess = !Result.CreatedVolumes.IsEmpty();
 
-    UE_LOG(LogMapUtils, Log,
-        TEXT("ConvertActorsToBlockingVolumes: %d actors -> %d volumes across %d clusters (level: %s)"),
-        Result.DestroyedActorNames.Num(), Result.CreatedVolumes.Num(), Result.ClusterCount,
-        *TargetLevel->GetOutermost()->GetName());
+    UE_LOG(LogMapUtils, Log, TEXT("ConvertActorsToBlockingVolumes: %d actors -> %d volumes across %d clusters (level: %s)"), Result.DestroyedActorNames.Num(), Result.CreatedVolumes.Num(), Result.ClusterCount, *TargetLevel->GetOutermost()->GetName());
 
     return Result;
 }

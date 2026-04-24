@@ -47,9 +47,7 @@ FMapUtilsReplaceResult FMapUtilsReplaceStaticMeshOps::ReplaceStaticMesh(
 
     Result.bSuccess = Result.UpdatedCount > 0;
 
-    UE_LOG(LogMapUtils, Log,
-        TEXT("ReplaceStaticMesh: updated %d actor(s) with %s"),
-        Result.UpdatedCount, *NewMesh->GetPathName());
+    UE_LOG(LogMapUtils, Log, TEXT("ReplaceStaticMesh: updated %d actor(s) with %s"), Result.UpdatedCount, *NewMesh->GetPathName());
 
     return Result;
 }

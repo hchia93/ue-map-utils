@@ -1,6 +1,7 @@
 #include "SMapUtilsPanel.h"
 
 #include "MapUtilsActions.h"
+#include "Widgets/SMapUtilsDiffDialog.h"
 
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"
@@ -43,7 +44,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                 [
                     SNew(SButton)
                     .HAlign(HAlign_Center)
-                    .Text(LOCTEXT("AuditStaticMesh", "Audit StaticMesh Refs (current level)"))
+                    .Text(LOCTEXT("AuditStaticMesh", "Audit StaticMesh References"))
                     .ToolTipText(LOCTEXT("AuditStaticMeshTooltip",
                         "Scan current level for AStaticMeshActor with null StaticMesh. "
                         "Results in Message Log with click-to-actor tokens."))
@@ -91,7 +92,37 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                 .Padding(GroupHeaderPadding)
                 [
                     SNew(STextBlock)
-                    .Text(LOCTEXT("ExportHeader", "Export (AI consumable)"))
+                    .Text(LOCTEXT("ReviewHeader", "Review"))
+                    .TextStyle(FAppStyle::Get(), "LargeText")
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SButton)
+                    .HAlign(HAlign_Center)
+                    .Text(LOCTEXT("ReviewModified", "Review Modified Objects"))
+                    .ToolTipText(LOCTEXT("ReviewModifiedTooltip",
+                        "Open a dialog listing actors touched in this editor session. "
+                        "Check entries and Move them to another sub-level, or click Details "
+                        "to inspect per-property transaction deltas on a single actor."))
+                    .OnClicked(this, &SMapUtilsPanel::OnReviewModifiedClicked)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(GroupHeaderPadding)
+                [
+                    SNew(SSeparator)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(GroupHeaderPadding)
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("ExportHeader", "Context Export"))
                     .TextStyle(FAppStyle::Get(), "LargeText")
                 ]
 
@@ -146,6 +177,12 @@ FReply SMapUtilsPanel::OnExportStaticMeshClicked()
 FReply SMapUtilsPanel::OnExportCollisionClicked()
 {
     FMapUtilsActions::ExportCollisionContext();
+    return FReply::Handled();
+}
+
+FReply SMapUtilsPanel::OnReviewModifiedClicked()
+{
+    SMapUtilsDiffDialog::OpenWindow();
     return FReply::Handled();
 }
 

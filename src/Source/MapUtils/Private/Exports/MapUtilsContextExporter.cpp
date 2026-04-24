@@ -171,8 +171,7 @@ FMapUtilsContextExportResult FMapUtilsContextExporter::ExportStaticMeshContext(U
         Result.OutputPath = OutputPath;
         Result.ItemCount = Actors.Num();
 
-        UE_LOG(LogMapUtils, Log, TEXT("ExportStaticMeshContext: wrote %d actors to %s"),
-            Result.ItemCount, *OutputPath);
+        UE_LOG(LogMapUtils, Log, TEXT("ExportStaticMeshContext: wrote %d actors to %s"), Result.ItemCount, *OutputPath);
     }
     else
     {
@@ -258,8 +257,7 @@ FMapUtilsContextExportResult FMapUtilsContextExporter::ExportCollisionContext(UW
         Result.OutputPath = OutputPath;
         Result.ItemCount = Actors.Num();
 
-        UE_LOG(LogMapUtils, Log, TEXT("ExportCollisionContext: wrote %d actors to %s"),
-            Result.ItemCount, *OutputPath);
+        UE_LOG(LogMapUtils, Log, TEXT("ExportCollisionContext: wrote %d actors to %s"), Result.ItemCount, *OutputPath);
     }
     else
     {

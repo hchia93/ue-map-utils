@@ -17,4 +17,5 @@ private:
     FReply OnConvertClicked();
     FReply OnExportStaticMeshClicked();
     FReply OnExportCollisionClicked();
+    FReply OnReviewModifiedClicked();
 };

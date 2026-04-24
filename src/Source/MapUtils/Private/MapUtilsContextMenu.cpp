@@ -54,9 +54,7 @@ void FMapUtilsContextMenu::Register()
     UToolMenu* ActorMenu = ToolMenus->ExtendMenu(ActorContextMenuPath);
     if (!ActorMenu)
     {
-        UE_LOG(LogMapUtils, Warning,
-            TEXT("FMapUtilsContextMenu::Register: '%s' not found. Replace StaticMesh available only via Tools menu."),
-            *ActorContextMenuPath.ToString());
+        UE_LOG(LogMapUtils, Warning, TEXT("FMapUtilsContextMenu::Register: '%s' not found. Replace StaticMesh available only via Tools menu."), *ActorContextMenuPath.ToString());
         return;
     }
 
