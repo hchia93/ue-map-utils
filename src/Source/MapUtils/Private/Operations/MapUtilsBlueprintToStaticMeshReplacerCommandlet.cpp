@@ -1,4 +1,4 @@
-#include "Operations/MapUtilsPrefabFlattenCommandlet.h"
+#include "Operations/MapUtilsBlueprintToStaticMeshReplacerCommandlet.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
@@ -12,8 +12,11 @@
 #include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "RenderingThread.h"
+#include "Rendering/ColorVertexBuffer.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "StaticMeshComponentLODInfo.h"
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
 #include "UObject/UObjectGlobals.h"
@@ -90,7 +93,7 @@ namespace
     }
 }
 
-UMapUtilsPrefabFlattenCommandlet::UMapUtilsPrefabFlattenCommandlet()
+UMapUtilsBlueprintToStaticMeshReplacerCommandlet::UMapUtilsBlueprintToStaticMeshReplacerCommandlet()
 {
     IsClient = false;
     IsEditor = true;
@@ -98,16 +101,16 @@ UMapUtilsPrefabFlattenCommandlet::UMapUtilsPrefabFlattenCommandlet()
     LogToConsole = true;
 }
 
-int32 UMapUtilsPrefabFlattenCommandlet::Main(const FString& Params)
+int32 UMapUtilsBlueprintToStaticMeshReplacerCommandlet::Main(const FString& Params)
 {
-    UE_LOG(LogMapUtils, Display, TEXT("PrefabFlatten commandlet starting..."));
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer commandlet starting..."));
 
     FOptions Options;
     if (!ParseOptions(Params, Options))
     {
         return 1;
     }
-    UE_LOG(LogMapUtils, Display, TEXT("PrefabFlatten: candidates=%d levels=%d dryRun=%s manifest=%s"),
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: candidates=%d levels=%d dryRun=%s manifest=%s"),
         Options.CandidateAssetPaths.Num(),
         Options.LevelPaths.Num(),
         Options.bDryRun ? TEXT("true") : TEXT("false"),
@@ -118,7 +121,7 @@ int32 UMapUtilsPrefabFlattenCommandlet::Main(const FString& Params)
     {
         return 1;
     }
-    UE_LOG(LogMapUtils, Display, TEXT("PrefabFlatten: resolved %d candidate classes"), CandidateClasses.Num());
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: resolved %d candidate classes"), CandidateClasses.Num());
 
     TArray<FLevelResult> LevelResults;
     LevelResults.Reserve(Options.LevelPaths.Num());
@@ -136,7 +139,7 @@ int32 UMapUtilsPrefabFlattenCommandlet::Main(const FString& Params)
         LevelResults.Add(LevelResult);
 
         UE_LOG(LogMapUtils, Display,
-            TEXT("PrefabFlatten: %s -> found=%d replaced=%d saved=%s reason=%s"),
+            TEXT("BlueprintToStaticMeshReplacer: %s -> found=%d replaced=%d saved=%s reason=%s"),
             *LevelPath,
             LevelResult.InstancesFound,
             LevelResult.InstancesReplaced,
@@ -166,14 +169,14 @@ int32 UMapUtilsPrefabFlattenCommandlet::Main(const FString& Params)
     }
 
     UE_LOG(LogMapUtils, Display,
-        TEXT("PrefabFlatten: complete. levels=%d red=%d instances_found=%d instances_replaced=%d (dryRun=%s)"),
+        TEXT("BlueprintToStaticMeshReplacer: complete. levels=%d red=%d instances_found=%d instances_replaced=%d (dryRun=%s)"),
         LevelResults.Num(), LevelsRed, TotalFound, TotalReplaced,
         Options.bDryRun ? TEXT("true") : TEXT("false"));
 
     return LevelsRed > 0 ? 2 : 0;
 }
 
-bool UMapUtilsPrefabFlattenCommandlet::ParseOptions(const FString& Params, FOptions& OutOptions) const
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ParseOptions(const FString& Params, FOptions& OutOptions) const
 {
     auto SplitCommaList = [](const FString& Value, TArray<FString>& OutList)
     {
@@ -189,7 +192,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ParseOptions(const FString& Params, FOpti
     FString CandidatesValue;
     if (!FParse::Value(*Params, TEXT("-candidates="), CandidatesValue, false) || CandidatesValue.IsEmpty())
     {
-        UE_LOG(LogMapUtils, Error, TEXT("PrefabFlatten: -candidates=<paths> is required"));
+        UE_LOG(LogMapUtils, Error, TEXT("BlueprintToStaticMeshReplacer: -candidates=<paths> is required"));
         return false;
     }
     SplitCommaList(CandidatesValue, OutOptions.CandidateAssetPaths);
@@ -197,18 +200,18 @@ bool UMapUtilsPrefabFlattenCommandlet::ParseOptions(const FString& Params, FOpti
     FString LevelsValue;
     if (!FParse::Value(*Params, TEXT("-levels="), LevelsValue, false) || LevelsValue.IsEmpty())
     {
-        UE_LOG(LogMapUtils, Error, TEXT("PrefabFlatten: -levels=<paths> is required"));
+        UE_LOG(LogMapUtils, Error, TEXT("BlueprintToStaticMeshReplacer: -levels=<paths> is required"));
         return false;
     }
     SplitCommaList(LevelsValue, OutOptions.LevelPaths);
 
     if (!FParse::Value(*Params, TEXT("-manifest="), OutOptions.ManifestPath, false))
     {
-        // Default: Intermediate/PrefabFlatten/Manifest/<timestamp>.json
+        // Default: Intermediate/BlueprintToStaticMeshReplacer/Manifest/<timestamp>.json
         const FString Stamp = FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
         OutOptions.ManifestPath = FPaths::Combine(
             FPaths::ProjectDir(),
-            TEXT("Intermediate"), TEXT("PrefabFlatten"), TEXT("Manifest"),
+            TEXT("Intermediate"), TEXT("BlueprintToStaticMeshReplacer"), TEXT("Manifest"),
             FString::Printf(TEXT("%s.json"), *Stamp));
     }
     OutOptions.ManifestPath.TrimQuotesInline();
@@ -218,7 +221,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ParseOptions(const FString& Params, FOpti
     return true;
 }
 
-bool UMapUtilsPrefabFlattenCommandlet::ResolveCandidateClasses(
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ResolveCandidateClasses(
     const TArray<FString>& CandidateAssetPaths,
     TArray<UClass*>& OutClasses) const
 {
@@ -230,7 +233,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ResolveCandidateClasses(
         UClass* Cls = LoadBPGeneratedClass(AssetPath);
         if (!Cls)
         {
-            UE_LOG(LogMapUtils, Error, TEXT("PrefabFlatten: failed to resolve candidate class: %s"), *AssetPath);
+            UE_LOG(LogMapUtils, Error, TEXT("BlueprintToStaticMeshReplacer: failed to resolve candidate class: %s"), *AssetPath);
             return false;
         }
         OutClasses.Add(Cls);
@@ -238,7 +241,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ResolveCandidateClasses(
     return OutClasses.Num() > 0;
 }
 
-bool UMapUtilsPrefabFlattenCommandlet::ProcessLevel(
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ProcessLevel(
     const FString& LevelPath,
     const TArray<UClass*>& CandidateClasses,
     bool bDryRun,
@@ -341,7 +344,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ProcessLevel(
     return true;
 }
 
-bool UMapUtilsPrefabFlattenCommandlet::ReplaceInstance(
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
     AActor* OldActor,
     UWorld* World,
     UClass* MatchedClass,
@@ -394,22 +397,27 @@ bool UMapUtilsPrefabFlattenCommandlet::ReplaceInstance(
         return true;
     }
 
-    // Spawn new SMA at SMC's world transform
+    // Spawn new SMA at IDENTITY; final transform applied via FinishSpawning(WorldXform).
+    // Calling SpawnActor with the real transform AND FinishSpawning with the real transform
+    // triggers AActor::FinishSpawning's deferred-transform recompute (Actor.cpp ~L4373):
+    //   TemplateTransform = RootComponent.GetComponentTransform() * OriginalSpawnTransform.Inverse();
+    //   FinalRootTransform = TemplateTransform * UserTransform;
+    // which composes the spawn-time rotation with the FinishSpawning rotation, doubling Yaw.
+    // Spawning at identity makes TemplateTransform == Identity, so FinalRootTransform == UserTransform.
     FActorSpawnParameters SpawnParams;
     SpawnParams.OverrideLevel = OldActor->GetLevel();
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     SpawnParams.bDeferConstruction = true; // we want to set props before BeginPlay
     AStaticMeshActor* NewSMA = World->SpawnActor<AStaticMeshActor>(
         AStaticMeshActor::StaticClass(),
-        WorldXform.GetLocation(),
-        WorldXform.Rotator(),
+        FVector::ZeroVector,
+        FRotator::ZeroRotator,
         SpawnParams);
     if (!NewSMA)
     {
         OutRecord.FailReason = TEXT("SpawnActor<AStaticMeshActor> returned null");
         return false;
     }
-    NewSMA->SetActorScale3D(WorldXform.GetScale3D());
 
     UStaticMeshComponent* NewSMC = NewSMA->GetStaticMeshComponent();
     if (!NewSMC)
@@ -433,10 +441,62 @@ bool UMapUtilsPrefabFlattenCommandlet::ReplaceInstance(
         }
     }
 
-    // BodyInstance: integrated copy via the dedicated property merge,
-    // which respects nested struct semantics (responses, physMat override, flags).
+    // BodyInstance: field-copy preserves nested fields (responses, physMat, flags),
+    // then re-apply profile + collision-enabled via setters so the property system
+    // marks them as overridden vs SMA archetype (raw struct assignment alone is not
+    // recognised as archetype-delta and silently reverts to AStaticMeshActor CDO on save).
     NewSMC->BodyInstance = OldSMC->BodyInstance;
+    NewSMC->SetCollisionProfileName(OldSMC->GetCollisionProfileName());
+    NewSMC->SetCollisionEnabled(OldSMC->GetCollisionEnabled());
     NewSMC->BodyInstance.UpdatePhysicsFilterData();
+
+    // Vertex paint: OverrideVertexColors lives on FStaticMeshComponentLODInfo and is a raw
+    // FColorVertexBuffer*, NOT a UProperty. Archetype-delta serialization sees nothing, so
+    // a fresh SMA spawned from CDO has empty LODData; we must deep-copy each LOD's color
+    // buffer + the PaintedVertices source-of-truth array used by the editor for re-paint.
+    const int32 NumLOD = OldSMC->LODData.Num();
+    if (NumLOD > 0)
+    {
+        NewSMC->SetLODDataCount(NumLOD, NumLOD);
+        for (int32 LODIdx = 0; LODIdx < NumLOD; ++LODIdx)
+        {
+            const FStaticMeshComponentLODInfo& OldLOD = OldSMC->LODData[LODIdx];
+            FStaticMeshComponentLODInfo& NewLOD = NewSMC->LODData[LODIdx];
+
+            NewLOD.PaintedVertices = OldLOD.PaintedVertices;
+            // OverrideMapBuildData (per-instance baked lightmap) is TUniquePtr-owned and not
+            // trivially copyable. Skipped: the level needs Build Lighting after flatten anyway,
+            // which regenerates this from the lightmass run.
+
+            FColorVertexBuffer* OldCVB = OldLOD.OverrideVertexColors;
+            if (OldCVB && OldCVB->GetNumVertices() > 0)
+            {
+                const int32 NumVerts = OldCVB->GetNumVertices();
+                TArray<FColor> Colors;
+                Colors.SetNumUninitialized(NumVerts);
+                for (int32 v = 0; v < NumVerts; ++v)
+                {
+                    Colors[v] = OldCVB->VertexColor(v);
+                }
+                NewLOD.OverrideVertexColors = new FColorVertexBuffer();
+                NewLOD.OverrideVertexColors->InitFromColorArray(Colors);
+                BeginInitResource(NewLOD.OverrideVertexColors, nullptr);
+            }
+        }
+        NewSMC->MarkRenderStateDirty();
+    }
+
+    // Custom Primitive Data: per-instance material parameter overrides. UE 5.x has TWO
+    // fields: CustomPrimitiveData (UPROPERTY EditAnywhere - persisted) and
+    // CustomPrimitiveDataInternal (UPROPERTY Transient - runtime buffer). The plain
+    // SetCustomPrimitiveDataFloat() setter writes only Internal which gets reset from
+    // persisted on load, so SavePackage drops the values. Use SetDefaultCustomPrimitiveDataFloat
+    // which writes the persisted field.
+    const TArray<float>& OldCPD = OldSMC->GetCustomPrimitiveData().Data;
+    for (int32 i = 0; i < OldCPD.Num(); ++i)
+    {
+        NewSMC->SetDefaultCustomPrimitiveDataFloat(i, OldCPD[i]);
+    }
 
     // Outliner organization
     NewSMA->SetFolderPath(OldActor->GetFolderPath());
@@ -451,7 +511,7 @@ bool UMapUtilsPrefabFlattenCommandlet::ReplaceInstance(
     return true;
 }
 
-bool UMapUtilsPrefabFlattenCommandlet::WriteManifest(
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::WriteManifest(
     const FString& ManifestPath,
     const TArray<FLevelResult>& LevelResults,
     bool bDryRun) const
@@ -522,7 +582,7 @@ bool UMapUtilsPrefabFlattenCommandlet::WriteManifest(
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutString);
     if (!FJsonSerializer::Serialize(Root, Writer))
     {
-        UE_LOG(LogMapUtils, Error, TEXT("PrefabFlatten: failed to serialize manifest JSON"));
+        UE_LOG(LogMapUtils, Error, TEXT("BlueprintToStaticMeshReplacer: failed to serialize manifest JSON"));
         return false;
     }
 
@@ -534,10 +594,10 @@ bool UMapUtilsPrefabFlattenCommandlet::WriteManifest(
 
     if (!FFileHelper::SaveStringToFile(OutString, *ManifestPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
     {
-        UE_LOG(LogMapUtils, Error, TEXT("PrefabFlatten: failed to write manifest: %s"), *ManifestPath);
+        UE_LOG(LogMapUtils, Error, TEXT("BlueprintToStaticMeshReplacer: failed to write manifest: %s"), *ManifestPath);
         return false;
     }
 
-    UE_LOG(LogMapUtils, Display, TEXT("PrefabFlatten: manifest written: %s"), *ManifestPath);
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: manifest written: %s"), *ManifestPath);
     return true;
 }

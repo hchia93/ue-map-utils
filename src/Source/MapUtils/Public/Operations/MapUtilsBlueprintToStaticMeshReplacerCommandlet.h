@@ -3,27 +3,23 @@
 #include "CoreMinimal.h"
 #include "Commandlets/Commandlet.h"
 
-#include "MapUtilsPrefabFlattenCommandlet.generated.h"
+#include "MapUtilsBlueprintToStaticMeshReplacerCommandlet.generated.h"
 
 class AStaticMeshActor;
 class UStaticMeshComponent;
 
 /*
- * Replace instances of "repivot wrapper" Blueprint classes (Blueprints that exist
- * only to wrap a single StaticMesh under a custom pivot) with plain AStaticMeshActor
- * across one or more level packages.
+ * Replace instances of trivial "wrapper" Blueprint classes (those whose only purpose
+ * is to wrap a single StaticMeshComponent under a custom pivot or default bundle)
+ * with plain AStaticMeshActor across one or more level packages.
  *
- * The candidate BP list is the caller's responsibility to produce. A typical
- * upstream pipeline:
- *   1. Discover all Blueprint assets under your asset root
- *   2. For each, check the SCS is either "SMC = root" or "RootSceneComponent + 1 SMC",
- *      EventGraph empty, ConstructionScript empty, no user variables
- *   3. Confirm the BP is referenced only by Level packages (no DataAsset, DataTable,
- *      or other Blueprint hierarchy)
- *   4. Pass surviving paths in via -candidates=
+ * Modify phase of the workflow. The snapshot phase (BlueprintEdGraphExport ->
+ * Script/BlueprintToStaticMeshReplacer/classify.py ->
+ * Script/BlueprintToStaticMeshReplacer/discover_levels.py) must run first to
+ * produce the candidate list.
  *
  * Usage:
- *   UnrealEditor-Cmd.exe Project.uproject -run=MapUtilsPrefabFlatten
+ *   UnrealEditor-Cmd.exe Project.uproject -run=MapUtilsBlueprintToStaticMeshReplacer
  *       -candidates="/Game/Path/BP_A,/Game/Path/BP_B"
  *       -levels="/Game/Maps/L_X,/Game/Maps/L_Y"
  *       -manifest="<abs path to manifest output JSON>"
@@ -49,13 +45,13 @@ class UStaticMeshComponent;
  * (e.g. unexpected component shape) are recorded but do not abort the level.
  */
 UCLASS()
-class UMapUtilsPrefabFlattenCommandlet : public UCommandlet
+class UMapUtilsBlueprintToStaticMeshReplacerCommandlet : public UCommandlet
 {
     GENERATED_BODY()
 
 public:
 
-    UMapUtilsPrefabFlattenCommandlet();
+    UMapUtilsBlueprintToStaticMeshReplacerCommandlet();
 
     virtual int32 Main(const FString& Params) override;
 

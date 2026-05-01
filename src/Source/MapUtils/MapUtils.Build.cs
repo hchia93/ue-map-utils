@@ -21,6 +21,7 @@ public class MapUtils : ModuleRules
                 "ContentBrowser",
                 "Json",
                 "JsonUtilities",
+                "RenderCore",
                 "WorkspaceMenuStructure"
             }
         );
