@@ -2,14 +2,20 @@
 
 #include "MapUtilsModule.h"
 
+#include "BSPOps.h"
 #include "Builders/CubeBuilder.h"
+#include "Components/BrushComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Editor.h"
 #include "Engine/BlockingVolume.h"
 #include "Engine/Level.h"
+#include "Engine/Polys.h"
 #include "Engine/StaticMesh.h"
-#include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
+#include "GameFramework/Actor.h"
 #include "Model.h"
 #include "ScopedTransaction.h"
 
@@ -17,142 +23,229 @@
 
 namespace
 {
-    struct FCandidate
+    /**
+     * Whether this primitive component represents real geometry we want a BV to wrap.
+     * Excludes triggers (UBoxComponent / USphereComponent / UCapsuleComponent) and editor billboards
+     * which inflate bounds far beyond the visible mesh.
+     */
+    bool IsMeshLikeComponent(UPrimitiveComponent* Prim)
     {
-        AStaticMeshActor* Actor = nullptr;
-        FBox Bounds;
-        int32 ClusterID = -1;
-    };
-
-    int32 FindRoot(TArray<int32>& Parents, int32 Index)
-    {
-        while (Parents[Index] != Index)
+        if (!Prim || !Prim->IsRegistered())
         {
-            Parents[Index] = Parents[Parents[Index]];
-            Index = Parents[Index];
+            return false;
         }
-        return Index;
+        // SMC catches plain StaticMesh, ISM, HISM, SplineMesh; SkeletalMesh + BrushComponent for completeness.
+        return Prim->IsA<UStaticMeshComponent>()
+            || Prim->IsA<USkeletalMeshComponent>()
+            || Prim->IsA<UBrushComponent>();
     }
 
-    TArray<FCandidate> BuildCandidates(const TArray<AStaticMeshActor*>& Actors)
+    /**
+     * Raw render AABB of a StaticMesh, with the asset's PositiveBoundsExtension /
+     * NegativeBoundsExtension stripped. UStaticMesh::GetBoundingBox() returns ExtendedBounds
+     * which is RenderBounds ± Extension; LDs use the extension as a shadow / VFX margin and
+     * it inflates the BV well beyond the visible mesh.
+     */
+    FBox GetMeshRawAabb(UStaticMesh* Mesh)
     {
-        TArray<FCandidate> Candidates;
-        Candidates.Reserve(Actors.Num());
-
-        for (AStaticMeshActor* Actor : Actors)
+        if (!Mesh)
         {
-            if (!IsValid(Actor))
-            {
-                continue;
-            }
-
-            UStaticMeshComponent* MeshComp = Actor->GetStaticMeshComponent();
-            if (!MeshComp)
-            {
-                continue;
-            }
-
-            UStaticMesh* Mesh = MeshComp->GetStaticMesh();
-            if (!Mesh)
-            {
-                UE_LOG(LogMapUtils, Warning, TEXT("BuildCandidates: skipping %s (no StaticMesh)"), *Actor->GetName());
-                continue;
-            }
-
-            FBox LocalBox = Mesh->GetBoundingBox();
-            if (!LocalBox.IsValid)
-            {
-                continue;
-            }
-
-            // Editor world: component transform cache is valid (tick has run).
-            FBox WorldBox = LocalBox.TransformBy(MeshComp->GetComponentTransform());
-
-            FCandidate Candidate;
-            Candidate.Actor = Actor;
-            Candidate.Bounds = WorldBox;
-            Candidates.Add(Candidate);
+            return FBox(ForceInit);
         }
-
-        return Candidates;
+        FBox Box = Mesh->GetBoundingBox();
+        Box.Min += Mesh->GetNegativeBoundsExtension();
+        Box.Max -= Mesh->GetPositiveBoundsExtension();
+        return Box;
     }
 
-    void ClusterByProximity(TArray<FCandidate>& Candidates, float Tolerance)
+    /**
+     * Mesh AABB transformed into the supplied frame, bypassing FBoxSphereBounds-based accessors
+     * (Prim->Bounds, Prim->CalcBounds) that include component-side BoundsScale and asset-side
+     * BoundsExtension. Those settings are used for shadow / culling margin and inflate the wrap.
+     */
+    FBox CalcRawComponentBounds(UPrimitiveComponent* Prim, const FTransform& OutputFrameRelative)
     {
-        const int32 Count = Candidates.Num();
-        if (Count <= 1)
+        if (!Prim)
         {
-            for (int32 i = 0; i < Count; i++)
+            return FBox(ForceInit);
+        }
+
+        // ISMC must come before SMC since it inherits from UStaticMeshComponent.
+        if (UInstancedStaticMeshComponent* ISMC = Cast<UInstancedStaticMeshComponent>(Prim))
+        {
+            const FBox MeshLocal = GetMeshRawAabb(ISMC->GetStaticMesh());
+            if (!MeshLocal.IsValid)
             {
-                Candidates[i].ClusterID = i;
+                return FBox(ForceInit);
             }
+            FBox Result(ForceInit);
+            const int32 Count = ISMC->GetInstanceCount();
+            for (int32 i = 0; i < Count; ++i)
+            {
+                FTransform InstCompLocal;
+                if (!ISMC->GetInstanceTransform(i, InstCompLocal, /*bWorldSpace*/ false))
+                {
+                    continue;
+                }
+                // Mesh -> instance-local -> component-local -> output frame.
+                const FTransform InstInOutputFrame = InstCompLocal * OutputFrameRelative;
+                Result += MeshLocal.TransformBy(InstInOutputFrame);
+            }
+            return Result;
+        }
+
+        if (UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Prim))
+        {
+            const FBox MeshLocal = GetMeshRawAabb(SMC->GetStaticMesh());
+            if (!MeshLocal.IsValid)
+            {
+                return FBox(ForceInit);
+            }
+            return MeshLocal.TransformBy(OutputFrameRelative);
+        }
+
+        // SkeletalMesh / BrushComponent: FBoxSphereBounds is acceptable, no per-mesh extension knobs
+        // typically applied at the level-design tier.
+        return Prim->CalcBounds(OutputFrameRelative).GetBox();
+    }
+
+    bool ComputeActorMeshWorldBounds(AActor* Actor, FBox& OutWorldBox)
+    {
+        if (!IsValid(Actor) || Actor->IsA<ABlockingVolume>())
+        {
+            return false;
+        }
+
+        TArray<UPrimitiveComponent*> Prims;
+        Actor->GetComponents<UPrimitiveComponent>(Prims);
+
+        FBox WorldAABB(ForceInit);
+        for (UPrimitiveComponent* Prim : Prims)
+        {
+            if (!IsMeshLikeComponent(Prim))
+            {
+                continue;
+            }
+            // Output frame = world: pass component's full world transform.
+            WorldAABB += CalcRawComponentBounds(Prim, Prim->GetComponentTransform());
+        }
+
+        if (!WorldAABB.IsValid)
+        {
+            return false;
+        }
+        OutWorldBox = WorldAABB;
+        return true;
+    }
+
+    /**
+     * Actor-local AABB of mesh-like components, packaged as a world-space BV transform + size.
+     * Lets a single-selection BV align with the actor rotation (tight OBB).
+     *
+     * Uses CompWorldXf.GetRelativeTransform(ActorXf) to obtain the component-to-actor transform
+     * regardless of attachment depth. Prim->GetRelativeTransform() alone is parent-relative and
+     * gives wrong bounds for nested BP component hierarchies.
+     */
+    bool ComputeActorObb(AActor* Actor, FTransform& OutBvWorldXf, FVector& OutWorldSize)
+    {
+        if (!IsValid(Actor))
+        {
+            return false;
+        }
+
+        const FTransform ActorXf = Actor->GetActorTransform();
+
+        TArray<UPrimitiveComponent*> Prims;
+        Actor->GetComponents<UPrimitiveComponent>(Prims);
+
+        FBox LocalAABB(ForceInit);
+        for (UPrimitiveComponent* Prim : Prims)
+        {
+            if (!IsMeshLikeComponent(Prim))
+            {
+                continue;
+            }
+            const FTransform CompActorRel = Prim->GetComponentTransform().GetRelativeTransform(ActorXf);
+            LocalAABB += CalcRawComponentBounds(Prim, CompActorRel);
+        }
+        if (!LocalAABB.IsValid)
+        {
+            return false;
+        }
+
+        const FVector LocalCenter = LocalAABB.GetCenter();
+        const FVector LocalSize = LocalAABB.GetSize();
+
+        // BV brush is unit-scaled relative to its actor; bake actor scale into the world size so the
+        // unit brush plus actor-rotation transform places the volume tightly.
+        OutWorldSize = LocalSize * ActorXf.GetScale3D();
+        OutBvWorldXf = FTransform(
+            ActorXf.GetRotation(),
+            ActorXf.TransformPosition(LocalCenter),
+            FVector::OneVector);
+
+        UE_LOG(LogMapUtils, Verbose,
+            TEXT("ComputeActorObb: actor=%s, localCenter=(%.1f,%.1f,%.1f) localSize=(%.1f,%.1f,%.1f) -> worldLoc=(%.1f,%.1f,%.1f) worldSize=(%.1f,%.1f,%.1f)"),
+            *Actor->GetName(),
+            LocalCenter.X, LocalCenter.Y, LocalCenter.Z,
+            LocalSize.X, LocalSize.Y, LocalSize.Z,
+            OutBvWorldXf.GetLocation().X, OutBvWorldXf.GetLocation().Y, OutBvWorldXf.GetLocation().Z,
+            OutWorldSize.X, OutWorldSize.Y, OutWorldSize.Z);
+
+        return true;
+    }
+
+    /**
+     * Mirror of UActorFactory::CreateBrushForVolumeActor (engine internal). The previous direct
+     * Brush+Build path produced empty BrushComponent bounds (nav octree warnings) because it
+     * skipped the explicit UPolys creation, BrushComponent->Brush wiring, and FBSPOps::csgPrepMovingBrush
+     * step that finalize the brush geometry. Reproduced here verbatim with our Cube dimensions.
+     */
+    void BuildVolumeBrush(AVolume* Volume, UCubeBuilder* Builder)
+    {
+        if (!Volume || !Builder)
+        {
             return;
         }
 
-        TArray<int32> Parents;
-        TArray<int32> Ranks;
-        Parents.SetNum(Count);
-        Ranks.SetNum(Count);
+        Volume->PreEditChange(nullptr);
 
-        for (int32 i = 0; i < Count; i++)
+        const EObjectFlags ObjectFlags = Volume->GetFlags() & (RF_Transient | RF_Transactional);
+
+        Volume->PolyFlags = 0;
+        Volume->Brush = NewObject<UModel>(Volume, NAME_None, ObjectFlags);
+        Volume->Brush->Initialize(nullptr, true);
+        Volume->Brush->Polys = NewObject<UPolys>(Volume->Brush, NAME_None, ObjectFlags);
+        Volume->GetBrushComponent()->Brush = Volume->Brush;
+        Volume->BrushBuilder = DuplicateObject<UBrushBuilder>(Builder, Volume);
+
+        Builder->Build(Volume->GetWorld(), Volume);
+
+        FBSPOps::csgPrepMovingBrush(Volume);
+
+        // Strip any auto-assigned poly textures so the BV doesn't hold material refs.
+        if (Volume->Brush != nullptr && Volume->Brush->Polys != nullptr)
         {
-            Parents[i] = i;
-            Ranks[i] = 0;
-        }
-
-        for (int32 i = 0; i < Count; i++)
-        {
-            const FBox Expanded = Candidates[i].Bounds.ExpandBy(Tolerance);
-
-            for (int32 j = i + 1; j < Count; j++)
+            for (int32 PolyIdx = 0; PolyIdx < Volume->Brush->Polys->Element.Num(); ++PolyIdx)
             {
-                const FBox& Other = Candidates[j].Bounds;
-
-                const bool bOverlap =
-                    Expanded.Min.X <= Other.Max.X && Expanded.Max.X >= Other.Min.X &&
-                    Expanded.Min.Y <= Other.Max.Y && Expanded.Max.Y >= Other.Min.Y &&
-                    Expanded.Min.Z <= Other.Max.Z && Expanded.Max.Z >= Other.Min.Z;
-
-                if (bOverlap)
-                {
-                    const int32 RootI = FindRoot(Parents, i);
-                    const int32 RootJ = FindRoot(Parents, j);
-                    if (RootI != RootJ)
-                    {
-                        if (Ranks[RootI] < Ranks[RootJ])
-                        {
-                            Parents[RootI] = RootJ;
-                        }
-                        else if (Ranks[RootI] > Ranks[RootJ])
-                        {
-                            Parents[RootJ] = RootI;
-                        }
-                        else
-                        {
-                            Parents[RootJ] = RootI;
-                            Ranks[RootI]++;
-                        }
-                    }
-                }
+                Volume->Brush->Polys->Element[PolyIdx].Material = nullptr;
             }
         }
 
-        for (int32 i = 0; i < Count; i++)
-        {
-            Candidates[i].ClusterID = FindRoot(Parents, i);
-        }
+        Volume->PostEditChange();
     }
 
-    ABlockingVolume* CreateBlockingVolume(UWorld* World, ULevel* TargetLevel, const FBox& Bounds)
+    ABlockingVolume* SpawnBlockingVolume(UWorld* World, ULevel* TargetLevel, const FTransform& BvXf, const FVector& Size)
     {
-        const FVector Center = Bounds.GetCenter();
-        const FVector Size = Bounds.GetSize();
-
         FActorSpawnParameters SpawnParams;
         SpawnParams.OverrideLevel = TargetLevel;
 
+        // Spawn at the full target transform (location + rotation). Brush polys are built in actor-
+        // local space which is independent of actor rotation, so building after spawning rotated is
+        // fine. Avoids the late-apply rotation path which left brush bounds and visible mesh out of
+        // sync in some configurations.
         ABlockingVolume* Volume = World->SpawnActor<ABlockingVolume>(
-            ABlockingVolume::StaticClass(), FTransform(Center), SpawnParams);
+            ABlockingVolume::StaticClass(), BvXf, SpawnParams);
         if (!Volume)
         {
             UE_LOG(LogMapUtils, Error, TEXT("SpawnActor<ABlockingVolume> failed."));
@@ -161,105 +254,122 @@ namespace
 
         Volume->Modify();
 
-        UModel* BrushModel = NewObject<UModel>(Volume, NAME_None, RF_Transactional);
-        BrushModel->Initialize(Volume, true);
-        Volume->Brush = BrushModel;
-
         UCubeBuilder* Builder = NewObject<UCubeBuilder>(Volume, NAME_None, RF_Transactional);
         Builder->X = Size.X;
         Builder->Y = Size.Y;
         Builder->Z = Size.Z;
-        Volume->BrushBuilder = Builder;
-        Builder->Build(World, Volume);
 
-        Volume->SetActorLocation(Center);
-        Volume->PostEditChange();
+        BuildVolumeBrush(Volume, Builder);
+
+        // Refresh component bounds cache after brush polys are settled.
+        Volume->PostEditMove(true);
 
         return Volume;
     }
 }
 
-FMapUtilsBlockingVolumeConvertResult FMapUtilsBlockingVolumeOps::ConvertActorsToBlockingVolumes(
-    const TArray<AStaticMeshActor*>& Actors,
-    float ToleranceUnits)
+FMapUtilsBlockingVolumeWrapResult FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(
+    const TArray<AActor*>& Actors)
 {
-    FMapUtilsBlockingVolumeConvertResult Result;
+    FMapUtilsBlockingVolumeWrapResult Result;
 
     if (!GEditor)
     {
-        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: GEditor null."));
+        Result.ErrorText = LOCTEXT("NoEditor", "Editor not available.");
         return Result;
     }
 
-    TArray<FCandidate> Candidates = BuildCandidates(Actors);
-    if (Candidates.IsEmpty())
+    // Collect acceptable actors (non-BV, has bounds).
+    TArray<AActor*> Acceptable;
+    for (AActor* Actor : Actors)
     {
-        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: no valid AStaticMeshActor with mesh in input."));
-        return Result;
-    }
-
-    UWorld* World = Candidates[0].Actor->GetWorld();
-    ULevel* TargetLevel = Candidates[0].Actor->GetLevel();
-    if (!World || !TargetLevel)
-    {
-        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: first actor has no world or level."));
-        return Result;
-    }
-
-    if (!World->IsEditorWorld())
-    {
-        UE_LOG(LogMapUtils, Warning, TEXT("ConvertActorsToBlockingVolumes: not editor world, aborting."));
-        return Result;
-    }
-
-    ClusterByProximity(Candidates, ToleranceUnits);
-
-    TMap<int32, TArray<int32>> Clusters;
-    for (int32 i = 0; i < Candidates.Num(); i++)
-    {
-        Clusters.FindOrAdd(Candidates[i].ClusterID).Add(i);
-    }
-
-    Result.ClusterCount = Clusters.Num();
-
-    // Atomic undo: single Ctrl+Z reverts spawn + destroy for all clusters.
-    FScopedTransaction Transaction(LOCTEXT("ConvertToBlockingVolumes", "Convert to Blocking Volumes"));
-
-    TargetLevel->Modify();
-
-    for (const TPair<int32, TArray<int32>>& Pair : Clusters)
-    {
-        FBox ClusterBounds(ForceInit);
-        for (int32 Idx : Pair.Value)
+        FBox Probe;
+        if (ComputeActorMeshWorldBounds(Actor, Probe))
         {
-            ClusterBounds += Candidates[Idx].Bounds;
+            Acceptable.Add(Actor);
         }
+        else if (IsValid(Actor))
+        {
+            ++Result.SkippedActorCount;
+            UE_LOG(LogMapUtils, Verbose, TEXT("CreateBlockingVolumeForActors: skipping %s (no usable bounds)"),
+                *Actor->GetName());
+        }
+    }
 
-        ABlockingVolume* Volume = CreateBlockingVolume(World, TargetLevel, ClusterBounds);
+    if (Acceptable.IsEmpty())
+    {
+        Result.ErrorText = LOCTEXT("NoBounds",
+            "No valid actor with primitive bounds in selection. Select actors with static / skeletal / brush components.");
+        return Result;
+    }
+
+    Result.SourceActorCount = Acceptable.Num();
+
+    AActor* Anchor = Acceptable[0];
+    UWorld* World = Anchor->GetWorld();
+    ULevel* TargetLevel = Anchor->GetLevel();
+    if (!World || !TargetLevel || !World->IsEditorWorld())
+    {
+        Result.ErrorText = LOCTEXT("BadWorld", "Invalid editor world.");
+        return Result;
+    }
+
+    FTransform BvXf;
+    FVector Size;
+
+    if (Acceptable.Num() == 1)
+    {
+        // Single-actor: tight OBB aligned with the actor's rotation.
+        if (!ComputeActorObb(Acceptable[0], BvXf, Size))
+        {
+            Result.ErrorText = LOCTEXT("ObbFailed", "Failed to compute oriented bounds for the selected actor.");
+            return Result;
+        }
+    }
+    else
+    {
+        // Multi-actor: identity-rotation world AABB across all sources (acknowledged L-corner case).
+        FBox Combined(ForceInit);
+        for (AActor* Actor : Acceptable)
+        {
+            FBox Box;
+            if (ComputeActorMeshWorldBounds(Actor, Box))
+            {
+                Combined += Box;
+            }
+        }
+        if (!Combined.IsValid)
+        {
+            Result.ErrorText = LOCTEXT("NoBounds2", "No usable combined bounds.");
+            return Result;
+        }
+        BvXf = FTransform(FRotator::ZeroRotator, Combined.GetCenter(), FVector::OneVector);
+        Size = Combined.GetSize();
+    }
+
+    {
+        FScopedTransaction Transaction(LOCTEXT("CreateBV", "Create Blocking Volume for Actors"));
+        TargetLevel->Modify();
+
+        ABlockingVolume* Volume = SpawnBlockingVolume(World, TargetLevel, BvXf, Size);
         if (!Volume)
         {
-            continue;
+            Result.ErrorText = LOCTEXT("SpawnFailed", "Failed to spawn BlockingVolume.");
+            return Result;
         }
 
-        Result.CreatedVolumes.Add(Volume);
+        Result.CreatedVolume = Volume;
+        Result.bSuccess = true;
 
-        for (int32 Idx : Pair.Value)
-        {
-            AStaticMeshActor* SMA = Candidates[Idx].Actor;
-            if (!IsValid(SMA))
-            {
-                continue;
-            }
-
-            SMA->Modify();
-            Result.DestroyedActorNames.Add(SMA->GetName());
-            World->EditorDestroyActor(SMA, true);
-        }
+        GEditor->SelectNone(true, true);
+        GEditor->SelectActor(Volume, true, true);
     }
 
-    Result.bSuccess = !Result.CreatedVolumes.IsEmpty();
-
-    UE_LOG(LogMapUtils, Log, TEXT("ConvertActorsToBlockingVolumes: %d actors -> %d volumes across %d clusters (level: %s)"), Result.DestroyedActorNames.Num(), Result.CreatedVolumes.Num(), Result.ClusterCount, *TargetLevel->GetOutermost()->GetName());
+    UE_LOG(LogMapUtils, Log,
+        TEXT("CreateBlockingVolumeForActors: wrapping %d actor(s), skipped %d, mode=%s, size=(%.1f, %.1f, %.1f)"),
+        Result.SourceActorCount, Result.SkippedActorCount,
+        Acceptable.Num() == 1 ? TEXT("OBB") : TEXT("AABB"),
+        Size.X, Size.Y, Size.Z);
 
     return Result;
 }

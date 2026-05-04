@@ -11,8 +11,8 @@ Usage:
 
 Output format:
     One level package path per line, sorted, e.g.
-        /Game/Maps/L_Whitebox_02
-        /Game/Maps/Sublevels/L_WhiteBox_Sub_01RitualPool
+        /Game/Maps/L_Persistent
+        /Game/Maps/Sublevels/L_Sub_A
         ...
 
 The list is intentionally a flat text list (not CSV) so it can be piped into

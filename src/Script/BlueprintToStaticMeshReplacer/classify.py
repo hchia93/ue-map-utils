@@ -3,7 +3,7 @@ BlueprintToStaticMeshReplacer workflow.
 
 Inputs:
     --export-root  Directory containing BlueprintExport JSONs. Default:
-                   <CWD>/Intermediate/UAssetExport/Game/Asset
+                   <CWD>/Intermediate/UAssetExport/Game
 
 Outputs (stdout):
     candidates.csv content (Status,Name,AssetPath,LevelRefs,NonEditorComps,
@@ -99,7 +99,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument(
         "--export-root",
-        default=Path.cwd() / "Intermediate" / "UAssetExport" / "Game" / "Asset",
+        default=Path.cwd() / "Intermediate" / "UAssetExport" / "Game",
         type=Path,
     )
     parser.add_argument(

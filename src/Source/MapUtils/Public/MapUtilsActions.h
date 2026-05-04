@@ -13,7 +13,9 @@ class FMapUtilsActions
 {
 public:
     static void AuditCurrentLevel();
-    static void ConvertSelectedToBlockingVolume();
+    static void CreateBlockingVolumeFromSelection();
+    static void BakeSelectedToInstanceMesh();
+    static void BakeSelectedToMergedInstanceMesh();
     static void ExportStaticMeshContext();
     static void ExportCollisionContext();
 

@@ -2,6 +2,8 @@
 
 #include "Exports/MapUtilsContextExporter.h"
 #include "MapUtilsModule.h"
+#include "Operations/MapUtilsBakeToInstanceMeshOps.h"
+#include "Operations/MapUtilsBakeToMergedInstanceMeshOps.h"
 #include "Operations/MapUtilsBlockingVolumeOps.h"
 
 #include "Editor.h"
@@ -20,6 +22,50 @@
 namespace
 {
     const FName MapUtilsLogName(TEXT("MapUtils"));
+
+    TArray<AStaticMeshActor*> GatherSelectedSMA()
+    {
+        TArray<AStaticMeshActor*> Result;
+        if (!GEditor)
+        {
+            return Result;
+        }
+        USelection* Selection = GEditor->GetSelectedActors();
+        if (!Selection)
+        {
+            return Result;
+        }
+        for (FSelectionIterator It(*Selection); It; ++It)
+        {
+            if (AStaticMeshActor* SMA = Cast<AStaticMeshActor>(*It))
+            {
+                Result.Add(SMA);
+            }
+        }
+        return Result;
+    }
+
+    TArray<AActor*> GatherSelectedActorsAny()
+    {
+        TArray<AActor*> Result;
+        if (!GEditor)
+        {
+            return Result;
+        }
+        USelection* Selection = GEditor->GetSelectedActors();
+        if (!Selection)
+        {
+            return Result;
+        }
+        for (FSelectionIterator It(*Selection); It; ++It)
+        {
+            if (AActor* A = Cast<AActor>(*It))
+            {
+                Result.Add(A);
+            }
+        }
+        return Result;
+    }
 }
 
 void FMapUtilsActions::AuditCurrentLevel()
@@ -64,63 +110,142 @@ void FMapUtilsActions::AuditCurrentLevel()
     {
         Log.Info(LOCTEXT("NoIssues", "No issues found."));
     }
-
-    Log.Open(EMessageSeverity::Info, true);
+    else
+    {
+        // Only steal focus when there is something the user must act on.
+        Log.Open(EMessageSeverity::Warning, true);
+    }
 
     UE_LOG(LogMapUtils, Log, TEXT("AuditCurrentLevel: %d issue(s) found in %s"), IssueCount, *World->GetMapName());
 }
 
-void FMapUtilsActions::ConvertSelectedToBlockingVolume()
+void FMapUtilsActions::CreateBlockingVolumeFromSelection()
 {
-    if (!GEditor)
-    {
-        UE_LOG(LogMapUtils, Warning, TEXT("ConvertSelectedToBlockingVolume: GEditor null."));
-        return;
-    }
-
-    USelection* Selection = GEditor->GetSelectedActors();
-    if (!Selection)
-    {
-        return;
-    }
-
-    TArray<AStaticMeshActor*> Selected;
-    for (FSelectionIterator It(*Selection); It; ++It)
-    {
-        if (AStaticMeshActor* SMA = Cast<AStaticMeshActor>(*It))
-        {
-            Selected.Add(SMA);
-        }
-    }
+    const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
     FMessageLog Log(MapUtilsLogName);
-    Log.NewPage(LOCTEXT("ConvertPage", "Convert to BlockingVolume"));
+    Log.NewPage(LOCTEXT("CreateBVPage", "Create Blocking Volume for Actors"));
 
-    if (Selected.IsEmpty())
+    if (Actors.IsEmpty())
     {
-        Log.Warning(LOCTEXT("NoSelection", "No StaticMeshActor in current selection. Select one or more in the Outliner / viewport first."));
-        Log.Open(EMessageSeverity::Info, true);
+        Log.Warning(LOCTEXT("CreateBVNoSelection",
+            "No actor selected. Select one or more in the Outliner / viewport first."));
+        Log.Open(EMessageSeverity::Warning, true);
         return;
     }
 
-    const FMapUtilsBlockingVolumeConvertResult Result = FMapUtilsBlockingVolumeOps::ConvertActorsToBlockingVolumes(Selected);
+    const FMapUtilsBlockingVolumeWrapResult Result =
+        FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
 
     if (Result.bSuccess)
     {
-        const int32 DestroyedCount = Result.DestroyedActorNames.Num();
-        const int32 CreatedCount = Result.CreatedVolumes.Num();
-        const FText Fmt = LOCTEXT("ConvertSuccess", "Converted {0} actor(s) into {1} BlockingVolume(s) across {2} cluster(s). Ctrl+Z to undo.");
-        const FText Message = FText::Format(Fmt, DestroyedCount, CreatedCount, Result.ClusterCount);
+        const FText Message = FText::Format(
+            LOCTEXT("CreateBVOK",
+                "Created 1 BlockingVolume wrapping {0} actor(s). Skipped {1}. Sources preserved. Ctrl+Z to undo."),
+            Result.SourceActorCount, Result.SkippedActorCount);
+        Log.Info(Message);
+        // Success path: keep MessageLog updated but don't steal focus.
+    }
+    else
+    {
+        const FText Message = Result.ErrorText.IsEmpty()
+            ? LOCTEXT("CreateBVFail", "Create BlockingVolume failed. See Output Log.")
+            : Result.ErrorText;
+        Log.Error(Message);
+        Log.Open(EMessageSeverity::Error, true);
+    }
+}
+
+void FMapUtilsActions::BakeSelectedToInstanceMesh()
+{
+    const TArray<AStaticMeshActor*> Actors = GatherSelectedSMA();
+
+    FMessageLog Log(MapUtilsLogName);
+    Log.NewPage(LOCTEXT("BakeInstancePage", "Bake to Instance Mesh"));
+
+    if (Actors.IsEmpty())
+    {
+        Log.Warning(LOCTEXT("BakeInstanceNoSelection",
+            "No StaticMeshActor selected. Select one or more in the Outliner / viewport first."));
+        Log.Open(EMessageSeverity::Warning, true);
+        return;
+    }
+
+    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
+
+    if (Result.bSuccess)
+    {
+        const FText Message = FText::Format(
+            LOCTEXT("BakeInstanceOK", "Baked {0} actor(s) into {1} ISM actor(s). Ctrl+Z to undo."),
+            Result.SourceActorCount, Result.CreatedActorCount);
         Log.Info(Message);
     }
     else
     {
-        Log.Error(LOCTEXT("ConvertFailed", "Convert to BlockingVolume failed. See Output Log for details."));
+        const FText Message = Result.ErrorText.IsEmpty()
+            ? LOCTEXT("BakeInstanceFail", "Bake to Instance Mesh failed. See Output Log.")
+            : Result.ErrorText;
+        Log.Error(Message);
     }
 
-    Log.Open(EMessageSeverity::Info, true);
+    // Surface partial failure (some sources spawned, some didn't) without forcing the user to scrape logs.
+    for (const FString& FailedName : Result.FailedSourceNames)
+    {
+        Log.Warning(FText::Format(
+            LOCTEXT("BakeInstancePartialFail", "Failed to spawn ISM actor for '{0}'. Source actor preserved."),
+            FText::FromString(FailedName)));
+    }
 
-    UE_LOG(LogMapUtils, Log, TEXT("ConvertSelectedToBlockingVolume: %d -> %d (success=%d)"), Result.DestroyedActorNames.Num(), Result.CreatedVolumes.Num(), Result.bSuccess ? 1 : 0);
+    // Open only on total or partial failure, otherwise leave the log silent.
+    if (!Result.bSuccess || !Result.FailedSourceNames.IsEmpty())
+    {
+        Log.Open(Result.bSuccess ? EMessageSeverity::Warning : EMessageSeverity::Error, true);
+    }
+}
+
+void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
+{
+    const TArray<AActor*> Actors = GatherSelectedActorsAny();
+
+    FMessageLog Log(MapUtilsLogName);
+    Log.NewPage(LOCTEXT("BakeMergedInstancePage", "Bake to Merged Instance Mesh"));
+
+    if (Actors.IsEmpty())
+    {
+        Log.Warning(LOCTEXT("BakeMergedInstanceNoSelection",
+            "No actor selected. Select StaticMeshActors or previously-baked ISMActors in the Outliner / viewport."));
+        Log.Open(EMessageSeverity::Warning, true);
+        return;
+    }
+
+    const FMapUtilsBakeMergedInstanceResult Result =
+        FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
+
+    if (Result.bUserCancelled)
+    {
+        return;
+    }
+
+    if (Result.bSuccess)
+    {
+        const FText Message = FText::Format(
+            LOCTEXT("BakeMergedInstanceOK",
+                "Merged {0} source(s) -> 1 ISM actor with {1} instance(s) across {2} ISMC group(s). "
+                "Skipped {3} non-mesh actor(s). Ctrl+Z to undo."),
+            Result.SourceActorCount,
+            Result.InstanceCount,
+            Result.GroupCount,
+            Result.SkippedActorCount);
+        Log.Info(Message);
+    }
+    else
+    {
+        const FText Message = Result.ErrorText.IsEmpty()
+            ? LOCTEXT("BakeMergedInstanceFail", "Bake to Merged Instance Mesh failed. See Output Log.")
+            : Result.ErrorText;
+        Log.Error(Message);
+        Log.Open(EMessageSeverity::Error, true);
+    }
 }
 
 void FMapUtilsActions::ExportStaticMeshContext()
@@ -145,8 +270,8 @@ void FMapUtilsActions::ExportStaticMeshContext()
     else
     {
         Log.Error(LOCTEXT("ExportStaticMeshFail", "StaticMesh context export failed. See Output Log."));
+        Log.Open(EMessageSeverity::Error, true);
     }
-    Log.Open(EMessageSeverity::Info, true);
 }
 
 void FMapUtilsActions::ExportCollisionContext()
@@ -171,8 +296,8 @@ void FMapUtilsActions::ExportCollisionContext()
     else
     {
         Log.Error(LOCTEXT("ExportCollisionFail", "Collision context export failed. See Output Log."));
+        Log.Open(EMessageSeverity::Error, true);
     }
-    Log.Open(EMessageSeverity::Info, true);
 }
 
 FString FMapUtilsActions::GetLevelDisplayName(UWorld* World, ULevel* Level)

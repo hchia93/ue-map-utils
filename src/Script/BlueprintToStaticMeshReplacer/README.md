@@ -27,11 +27,13 @@ Pre-conditions:
 - The project's editor target is built and up-to-date
 - `UAssetJsonExporter` plugin compiled with the matching schema version
 
-Env overrides: `UE_PATH`, `UPROJECT`, `PYTHON`.
+Env overrides: `UE_PATH`, `UPROJECT`, `BP_ROOT`, `PYTHON`. `UPROJECT` defaults to the first
+`*.uproject` found under the working directory; override when the project root differs.
+`BP_ROOT` is the Content sub-tree to scan and defaults to `Content`.
 
 Outputs (under `Intermediate/BlueprintToStaticMeshReplacer/`):
 
-- `candidates.csv` — full classification of all `/Game/Asset/**/BP_*.uasset`
+- `candidates.csv` — full classification of all `BP_*.uasset` under `$BP_ROOT` (default `Content`)
 - `levels.txt` — deduped level package paths to snapshot
 - `Before/<level_path>.json` — LevelExport output, frozen as the diff baseline for audit
 - `manifest.json` — SVN revision + counts + timestamp

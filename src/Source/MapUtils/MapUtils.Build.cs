@@ -22,7 +22,8 @@ public class MapUtils : ModuleRules
                 "Json",
                 "JsonUtilities",
                 "RenderCore",
-                "WorkspaceMenuStructure"
+                "WorkspaceMenuStructure",
+                "BSPUtils"
             }
         );
     }

@@ -4,7 +4,7 @@
 #
 # Sequence:
 #   1. Pre-flight: assert SVN working copy is clean (no M / A / D / ?)
-#   2. Re-export all /Game/Asset/**/BP_*.uasset via BlueprintEdGraphExport
+#   2. Re-export every BP_*.uasset under "$BP_ROOT" via BlueprintEdGraphExport
 #   3. Classify into CANDIDATE / SKIP / EXCLUDE -> candidates.csv
 #   4. Aggregate level packages referenced by candidates -> levels.txt
 #   5. Run LevelExport on those levels
@@ -16,14 +16,15 @@
 #
 # Env overrides:
 #   UE_PATH    Default "C:/Program Files/Epic Games/UE_5.7"
-#   UPROJECT   Default "<CWD>/BLOODWELL.uproject"
+#   UPROJECT   Default: first *.uproject found in CWD
+#   BP_ROOT    Content sub-tree to scan for BP_*.uasset. Default "Content"
 #   PYTHON     Default first available of: python3, py, python
 #   SKIP_SVN_CHECK=1  Bypass SVN cleanliness pre-flight (use only if you accept the risk)
 
 set -euo pipefail
 
-# Resolve project root in a form UE.exe (Windows native) understands.
-# MSYS / git-bash $PWD reports as /d/BW; UE needs D:/BW.
+# Resolve project root in a form Windows-native UnrealEditor-Cmd.exe understands.
+# MSYS / git-bash report $PWD as /<drive>/path; UE needs <Drive>:/path.
 if command -v cygpath >/dev/null 2>&1; then
     PROJECT_ROOT="$(cygpath -m "$PWD")"
 elif WIN_PWD="$(pwd -W 2>/dev/null)"; then
@@ -33,7 +34,10 @@ else
 fi
 
 UE_PATH="${UE_PATH:-C:/Program Files/Epic Games/UE_5.7}"
-UPROJECT="${UPROJECT:-$PROJECT_ROOT/BLOODWELL.uproject}"
+if [ -z "${UPROJECT:-}" ]; then
+    UPROJECT="$(find "$PROJECT_ROOT" -maxdepth 2 -name '*.uproject' -type f 2>/dev/null | head -n 1)"
+fi
+BP_ROOT="${BP_ROOT:-Content}"
 
 WRAPPER="$PWD/Plugins/UAssetJsonExporter/scripts/run_commandlet.sh"
 EXPORT_ROOT="$PWD/Intermediate/UAssetExport"
@@ -41,8 +45,12 @@ WORK_ROOT="$PWD/Intermediate/BlueprintToStaticMeshReplacer"
 BEFORE_DIR="$WORK_ROOT/Before"
 MANIFEST="$WORK_ROOT/manifest.json"
 
-if [ ! -f "$UPROJECT" ]; then
-    echo "[snapshot] uproject not found: $UPROJECT" >&2
+if [ -z "$UPROJECT" ] || [ ! -f "$UPROJECT" ]; then
+    echo "[snapshot] uproject not found (looked for *.uproject under $PROJECT_ROOT); set UPROJECT env var" >&2
+    exit 2
+fi
+if [ ! -d "$BP_ROOT" ]; then
+    echo "[snapshot] BP_ROOT not found: $BP_ROOT" >&2
     exit 2
 fi
 if [ ! -f "$WRAPPER" ]; then
@@ -91,9 +99,9 @@ fi
 
 mkdir -p "$WORK_ROOT" "$BEFORE_DIR"
 
-# 2. Re-export every /Game/Asset/**/BP_*.uasset
-echo "[snapshot] discovering BPs under Content/Asset..."
-BP_LIST=$(find Content/Asset -name 'BP_*.uasset' -type f \
+# 2. Re-export every BP_*.uasset under BP_ROOT.
+echo "[snapshot] discovering BPs under $BP_ROOT..."
+BP_LIST=$(find "$BP_ROOT" -name 'BP_*.uasset' -type f \
     | sed 's|^Content|/Game|; s|\.uasset$||' \
     | sort | tr '\n' ',' | sed 's/,$//')
 BP_COUNT=$(echo "$BP_LIST" | tr ',' '\n' | wc -l | tr -d ' ')

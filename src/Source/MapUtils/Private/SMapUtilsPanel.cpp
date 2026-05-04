@@ -15,8 +15,16 @@
 
 void SMapUtilsPanel::Construct(const FArguments& InArgs)
 {
-    const FMargin GroupHeaderPadding(0, 8, 0, 4);
+    const FMargin SectionHeaderPadding(0, 12, 0, 4);
     const FMargin ButtonPadding(0, 2);
+    const FMargin SeparatorPadding(0, 8, 0, 0);
+
+    auto MakeHeader = [](const FText& Text) -> TSharedRef<SWidget>
+    {
+        return SNew(STextBlock)
+            .Text(Text)
+            .TextStyle(FAppStyle::Get(), "LargeText");
+    };
 
     ChildSlot
     [
@@ -29,13 +37,72 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
             [
                 SNew(SVerticalBox)
 
+                // -- Level --
                 + SVerticalBox::Slot()
                 .AutoHeight()
-                .Padding(GroupHeaderPadding)
+                .Padding(SectionHeaderPadding)
                 [
-                    SNew(STextBlock)
-                    .Text(LOCTEXT("AuditHeader", "Audit"))
-                    .TextStyle(FAppStyle::Get(), "LargeText")
+                    MakeHeader(LOCTEXT("LevelHeader", "Level"))
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SButton)
+                    .HAlign(HAlign_Center)
+                    .Text(LOCTEXT("BakeToInstance", "Bake Selected to Instance Mesh"))
+                    .ToolTipText(LOCTEXT("BakeToInstanceTooltip",
+                        "Replace each selected StaticMeshActor with its own ISM actor (1 instance each), "
+                        "tagged ISM_Baked and labelled ISM_Baked_<idx>. No grouping, even if multiple actors "
+                        "share the same mesh. Sources destroyed. Undo-safe."))
+                    .OnClicked(this, &SMapUtilsPanel::OnBakeToInstanceClicked)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SButton)
+                    .HAlign(HAlign_Center)
+                    .Text(LOCTEXT("BakeToMergedInstance", "Bake Selected to Merged Instance Mesh"))
+                    .ToolTipText(LOCTEXT("BakeToMergedInstanceTooltip",
+                        "Merge selected StaticMeshActors AND previously-baked ISMActors into ONE ISM actor "
+                        "at the centroid of all instances. Different (mesh / materials / collision) tuples "
+                        "become separate ISMC inside one actor. Mismatched collision profiles trigger a "
+                        "confirmation dialog. Use this instead of UE's Group Actor. Sources destroyed."))
+                    .OnClicked(this, &SMapUtilsPanel::OnBakeToMergedInstanceClicked)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SButton)
+                    .HAlign(HAlign_Center)
+                    .Text(LOCTEXT("CreateBV", "Create Blocking Volume for Actors"))
+                    .ToolTipText(LOCTEXT("CreateBVTooltip",
+                        "Compute the combined world-space bounds of selected actors (StaticMeshActor, BP "
+                        "actors, anything with primitive components) and spawn ONE BlockingVolume sized to "
+                        "wrap them. Single-selection covers that actor; multi-selection wraps the AABB of "
+                        "all bounds (perpendicular walls produce an L-corner box, fine for blocking). "
+                        "Sources preserved. Existing BlockingVolumes in the selection are skipped. Undo-safe."))
+                    .OnClicked(this, &SMapUtilsPanel::OnCreateBlockingVolumeClicked)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(SeparatorPadding)
+                [
+                    SNew(SSeparator)
+                ]
+
+                // -- Audit & Review --
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(SectionHeaderPadding)
+                [
+                    MakeHeader(LOCTEXT("AuditReviewHeader", "Audit & Review"))
                 ]
 
                 + SVerticalBox::Slot()
@@ -49,51 +116,6 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                         "Scan current level for AStaticMeshActor with null StaticMesh. "
                         "Results in Message Log with click-to-actor tokens."))
                     .OnClicked(this, &SMapUtilsPanel::OnAuditClicked)
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(GroupHeaderPadding)
-                [
-                    SNew(SSeparator)
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(GroupHeaderPadding)
-                [
-                    SNew(STextBlock)
-                    .Text(LOCTEXT("ActionsHeader", "Actions"))
-                    .TextStyle(FAppStyle::Get(), "LargeText")
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(ButtonPadding)
-                [
-                    SNew(SButton)
-                    .HAlign(HAlign_Center)
-                    .Text(LOCTEXT("ConvertToBV", "Convert Selected to Blocking Volume"))
-                    .ToolTipText(LOCTEXT("ConvertToBVTooltip",
-                        "Merge selected StaticMeshActors into BlockingVolume(s). "
-                        "New volumes spawn in the level of the first selected actor. Undo-safe."))
-                    .OnClicked(this, &SMapUtilsPanel::OnConvertClicked)
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(GroupHeaderPadding)
-                [
-                    SNew(SSeparator)
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(GroupHeaderPadding)
-                [
-                    SNew(STextBlock)
-                    .Text(LOCTEXT("ReviewHeader", "Review"))
-                    .TextStyle(FAppStyle::Get(), "LargeText")
                 ]
 
                 + SVerticalBox::Slot()
@@ -112,18 +134,17 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
 
                 + SVerticalBox::Slot()
                 .AutoHeight()
-                .Padding(GroupHeaderPadding)
+                .Padding(SeparatorPadding)
                 [
                     SNew(SSeparator)
                 ]
 
+                // -- Export --
                 + SVerticalBox::Slot()
                 .AutoHeight()
-                .Padding(GroupHeaderPadding)
+                .Padding(SectionHeaderPadding)
                 [
-                    SNew(STextBlock)
-                    .Text(LOCTEXT("ExportHeader", "Context Export"))
-                    .TextStyle(FAppStyle::Get(), "LargeText")
+                    MakeHeader(LOCTEXT("ExportHeader", "Export"))
                 ]
 
                 + SVerticalBox::Slot()
@@ -156,15 +177,33 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
     ];
 }
 
+FReply SMapUtilsPanel::OnBakeToInstanceClicked()
+{
+    FMapUtilsActions::BakeSelectedToInstanceMesh();
+    return FReply::Handled();
+}
+
+FReply SMapUtilsPanel::OnBakeToMergedInstanceClicked()
+{
+    FMapUtilsActions::BakeSelectedToMergedInstanceMesh();
+    return FReply::Handled();
+}
+
+FReply SMapUtilsPanel::OnCreateBlockingVolumeClicked()
+{
+    FMapUtilsActions::CreateBlockingVolumeFromSelection();
+    return FReply::Handled();
+}
+
 FReply SMapUtilsPanel::OnAuditClicked()
 {
     FMapUtilsActions::AuditCurrentLevel();
     return FReply::Handled();
 }
 
-FReply SMapUtilsPanel::OnConvertClicked()
+FReply SMapUtilsPanel::OnReviewModifiedClicked()
 {
-    FMapUtilsActions::ConvertSelectedToBlockingVolume();
+    SMapUtilsDiffDialog::OpenWindow();
     return FReply::Handled();
 }
 
@@ -177,12 +216,6 @@ FReply SMapUtilsPanel::OnExportStaticMeshClicked()
 FReply SMapUtilsPanel::OnExportCollisionClicked()
 {
     FMapUtilsActions::ExportCollisionContext();
-    return FReply::Handled();
-}
-
-FReply SMapUtilsPanel::OnReviewModifiedClicked()
-{
-    SMapUtilsDiffDialog::OpenWindow();
     return FReply::Handled();
 }
 

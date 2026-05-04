@@ -13,9 +13,11 @@ public:
     void Construct(const FArguments& InArgs);
 
 private:
+    FReply OnBakeToInstanceClicked();
+    FReply OnBakeToMergedInstanceClicked();
+    FReply OnCreateBlockingVolumeClicked();
     FReply OnAuditClicked();
-    FReply OnConvertClicked();
+    FReply OnReviewModifiedClicked();
     FReply OnExportStaticMeshClicked();
     FReply OnExportCollisionClicked();
-    FReply OnReviewModifiedClicked();
 };
