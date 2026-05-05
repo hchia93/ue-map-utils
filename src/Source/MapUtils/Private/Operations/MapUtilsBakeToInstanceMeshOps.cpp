@@ -12,17 +12,14 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "Materials/MaterialInterface.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MapUtilsBakeToInstanceMeshOps"
 
 namespace
 {
-    AActor* SpawnIsmActorForSource(
-        UWorld* World,
-        ULevel* Level,
-        AStaticMeshActor* Source,
-        int32 LabelIndex)
+    AActor* SpawnIsmActorForSource(UWorld* World, ULevel* Level, AStaticMeshActor* Source, int32 LabelIndex, UMaterialInterface* OverrideMaterial)
     {
         UStaticMeshComponent* Src = Source->GetStaticMeshComponent();
         if (!Src || !Src->GetStaticMesh())
@@ -42,8 +39,7 @@ namespace
         }
         Out->Modify();
 
-        UInstancedStaticMeshComponent* Ismc = NewObject<UInstancedStaticMeshComponent>(
-            Out, NAME_None, RF_Transactional);
+        UInstancedStaticMeshComponent* Ismc = NewObject<UInstancedStaticMeshComponent>(Out, NAME_None, RF_Transactional);
         Ismc->Modify();
         Ismc->bHasPerInstanceHitProxies = true;
         Ismc->SetMobility(EComponentMobility::Static);
@@ -52,9 +48,20 @@ namespace
         // Full settings migration before root assignment so register picks up the right state.
         MapUtilsComponentSettings::Copy(Src, Ismc);
 
-        // Reverse culling: derived from source actor scale determinant. ISMC sets it once;
-        // since this op produces 1 instance per ISMC, the per-component value is correct.
-        Ismc->SetReverseCulling(ActorXf.ToMatrixWithScale().Determinant() < 0.0);
+        // ToolSetup override: stamp the chosen material onto every slot, after Copy so it wins.
+        if (OverrideMaterial)
+        {
+            const int32 SlotCount = Ismc->GetNumMaterials();
+            for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
+            {
+                Ismc->SetMaterial(SlotIdx, OverrideMaterial);
+            }
+        }
+
+        // Either an explicit source flag or a mirrored actor (det<0) inverts winding; OR keeps both.
+        const bool bSrcReverse = Src->bReverseCulling;
+        const bool bDeterminantReverse = ActorXf.ToMatrixWithScale().Determinant() < 0.0;
+        Ismc->SetReverseCulling(bSrcReverse || bDeterminantReverse);
 
         Out->SetRootComponent(Ismc);
         Out->RemoveOwnedComponent(Ismc);
@@ -75,8 +82,7 @@ namespace
     }
 }
 
-FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(
-    const TArray<AStaticMeshActor*>& Actors)
+FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors, UMaterialInterface* OverrideMaterial)
 {
     FMapUtilsBakeInstanceResult Result;
 
@@ -137,7 +143,7 @@ FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(
 
         for (AStaticMeshActor* Source : Valid)
         {
-            AActor* New = SpawnIsmActorForSource(World, Level, Source, NextLabelIdx);
+            AActor* New = SpawnIsmActorForSource(World, Level, Source, NextLabelIdx, OverrideMaterial);
             if (!New)
             {
                 Result.FailedSourceNames.Add(Source->GetName());
@@ -154,8 +160,7 @@ FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(
 
     Result.bSuccess = Result.CreatedActorCount > 0;
 
-    UE_LOG(LogMapUtils, Log, TEXT("BakeToInstanceMesh (1:1): %d source(s) -> %d ISM actor(s), %d failed"),
-        Result.SourceActorCount, Result.CreatedActorCount, Result.FailedSourceNames.Num());
+    UE_LOG(LogMapUtils, Log, TEXT("BakeToInstanceMesh (1:1): %d source(s) -> %d ISM actor(s), %d failed"), Result.SourceActorCount, Result.CreatedActorCount, Result.FailedSourceNames.Num());
 
     return Result;
 }

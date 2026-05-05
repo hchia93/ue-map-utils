@@ -19,6 +19,8 @@ public class MapUtils : ModuleRules
                 "ToolMenus",
                 "MessageLog",
                 "ContentBrowser",
+                "PhysicsCore",
+                "PropertyEditor",
                 "Json",
                 "JsonUtilities",
                 "RenderCore",

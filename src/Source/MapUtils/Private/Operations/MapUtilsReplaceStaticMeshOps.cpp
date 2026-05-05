@@ -9,9 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "MapUtilsReplaceStaticMeshOps"
 
-FMapUtilsReplaceResult FMapUtilsReplaceStaticMeshOps::ReplaceStaticMesh(
-    const TArray<AStaticMeshActor*>& Actors,
-    UStaticMesh* NewMesh)
+FMapUtilsReplaceResult FMapUtilsReplaceStaticMeshOps::ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh)
 {
     FMapUtilsReplaceResult Result;
 

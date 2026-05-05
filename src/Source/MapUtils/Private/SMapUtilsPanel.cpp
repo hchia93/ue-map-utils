@@ -3,6 +3,9 @@
 #include "MapUtilsActions.h"
 #include "Widgets/SMapUtilsDiffDialog.h"
 
+#include "AssetRegistry/AssetData.h"
+#include "Materials/MaterialInterface.h"
+#include "PropertyCustomizationHelpers.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
@@ -37,6 +40,48 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
             [
                 SNew(SVerticalBox)
 
+                // -- Tool Setup --
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(SectionHeaderPadding)
+                [
+                    MakeHeader(LOCTEXT("ToolSetupHeader", "Tool Setup"))
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SHorizontalBox)
+                    + SHorizontalBox::Slot()
+                    .AutoWidth()
+                    .VAlign(VAlign_Center)
+                    .Padding(0, 0, 8, 0)
+                    [
+                        SNew(STextBlock)
+                        .Text(LOCTEXT("OverrideMaterialLabel", "Override Material"))
+                        .ToolTipText(LOCTEXT("OverrideMaterialTooltip", "Optional. When set, every ISMC slot on baked actors is forced to this material. Source-side material override divergence is also ignored when grouping in the Merged bake, so visually identical walls collapse into one ISMC."))
+                    ]
+                    + SHorizontalBox::Slot()
+                    .FillWidth(1.0f)
+                    [
+                        SNew(SObjectPropertyEntryBox)
+                        .AllowedClass(UMaterialInterface::StaticClass())
+                        .ObjectPath(this, &SMapUtilsPanel::GetOverrideMaterialPath)
+                        .OnObjectChanged(this, &SMapUtilsPanel::OnOverrideMaterialChanged)
+                        .DisplayBrowse(true)
+                        .DisplayUseSelected(true)
+                        .DisplayThumbnail(false)
+                    ]
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(SeparatorPadding)
+                [
+                    SNew(SSeparator)
+                ]
+
                 // -- Level --
                 + SVerticalBox::Slot()
                 .AutoHeight()
@@ -52,10 +97,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("BakeToInstance", "Bake Selected to Instance Mesh"))
-                    .ToolTipText(LOCTEXT("BakeToInstanceTooltip",
-                        "Replace each selected StaticMeshActor with its own ISM actor (1 instance each), "
-                        "tagged ISM_Baked and labelled ISM_Baked_<idx>. No grouping, even if multiple actors "
-                        "share the same mesh. Sources destroyed. Undo-safe."))
+                    .ToolTipText(LOCTEXT("BakeToInstanceTooltip", "Replace each selected StaticMeshActor with its own ISM actor (1 instance each), tagged ISM_Baked and labelled ISM_Baked_<idx>. No grouping, even if multiple actors share the same mesh. Sources destroyed. Undo-safe."))
                     .OnClicked(this, &SMapUtilsPanel::OnBakeToInstanceClicked)
                 ]
 
@@ -66,11 +108,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("BakeToMergedInstance", "Bake Selected to Merged Instance Mesh"))
-                    .ToolTipText(LOCTEXT("BakeToMergedInstanceTooltip",
-                        "Merge selected StaticMeshActors AND previously-baked ISMActors into ONE ISM actor "
-                        "at the centroid of all instances. Different (mesh / materials / collision) tuples "
-                        "become separate ISMC inside one actor. Mismatched collision profiles trigger a "
-                        "confirmation dialog. Use this instead of UE's Group Actor. Sources destroyed."))
+                    .ToolTipText(LOCTEXT("BakeToMergedInstanceTooltip", "Merge selected StaticMeshActors AND previously-baked ISMActors into ONE ISM actor at the centroid of all instances. Different (mesh / materials / collision) tuples become separate ISMC inside one actor. Mismatched collision profiles trigger a confirmation dialog. Use this instead of UE's Group Actor. Sources destroyed."))
                     .OnClicked(this, &SMapUtilsPanel::OnBakeToMergedInstanceClicked)
                 ]
 
@@ -81,12 +119,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("CreateBV", "Create Blocking Volume for Actors"))
-                    .ToolTipText(LOCTEXT("CreateBVTooltip",
-                        "Compute the combined world-space bounds of selected actors (StaticMeshActor, BP "
-                        "actors, anything with primitive components) and spawn ONE BlockingVolume sized to "
-                        "wrap them. Single-selection covers that actor; multi-selection wraps the AABB of "
-                        "all bounds (perpendicular walls produce an L-corner box, fine for blocking). "
-                        "Sources preserved. Existing BlockingVolumes in the selection are skipped. Undo-safe."))
+                    .ToolTipText(LOCTEXT("CreateBVTooltip", "Compute the combined world-space bounds of selected actors (StaticMeshActor, BP actors, anything with primitive components) and spawn ONE BlockingVolume sized to wrap them. Single-selection covers that actor; multi-selection wraps the AABB of all bounds (perpendicular walls produce an L-corner box, fine for blocking). Sources preserved. Existing BlockingVolumes in the selection are skipped. Undo-safe."))
                     .OnClicked(this, &SMapUtilsPanel::OnCreateBlockingVolumeClicked)
                 ]
 
@@ -112,9 +145,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("AuditStaticMesh", "Audit StaticMesh References"))
-                    .ToolTipText(LOCTEXT("AuditStaticMeshTooltip",
-                        "Scan current level for AStaticMeshActor with null StaticMesh. "
-                        "Results in Message Log with click-to-actor tokens."))
+                    .ToolTipText(LOCTEXT("AuditStaticMeshTooltip", "Scan current level for AStaticMeshActor with null StaticMesh. Results in Message Log with click-to-actor tokens."))
                     .OnClicked(this, &SMapUtilsPanel::OnAuditClicked)
                 ]
 
@@ -125,10 +156,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("ReviewModified", "Review Modified Objects"))
-                    .ToolTipText(LOCTEXT("ReviewModifiedTooltip",
-                        "Open a dialog listing actors touched in this editor session. "
-                        "Check entries and Move them to another sub-level, or click Details "
-                        "to inspect per-property transaction deltas on a single actor."))
+                    .ToolTipText(LOCTEXT("ReviewModifiedTooltip", "Open a dialog listing actors touched in this editor session. Check entries and Move them to another sub-level, or click Details to inspect per-property transaction deltas on a single actor."))
                     .OnClicked(this, &SMapUtilsPanel::OnReviewModifiedClicked)
                 ]
 
@@ -154,9 +182,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("ExportSM", "Export StaticMesh Context"))
-                    .ToolTipText(LOCTEXT("ExportSMTooltip",
-                        "Write focused JSON (actors, mesh paths, materials, bounds) "
-                        "to Intermediate/MapUtilsContext/."))
+                    .ToolTipText(LOCTEXT("ExportSMTooltip", "Write focused JSON (actors, mesh paths, materials, bounds) to Intermediate/MapUtilsContext/."))
                     .OnClicked(this, &SMapUtilsPanel::OnExportStaticMeshClicked)
                 ]
 
@@ -167,9 +193,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("ExportColl", "Export Collision Context"))
-                    .ToolTipText(LOCTEXT("ExportCollTooltip",
-                        "Write collision-enabled actor candidates JSON "
-                        "to Intermediate/MapUtilsContext/."))
+                    .ToolTipText(LOCTEXT("ExportCollTooltip", "Write collision-enabled actor candidates JSON to Intermediate/MapUtilsContext/."))
                     .OnClicked(this, &SMapUtilsPanel::OnExportCollisionClicked)
                 ]
             ]
@@ -179,14 +203,28 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
 
 FReply SMapUtilsPanel::OnBakeToInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToInstanceMesh();
+    FMapUtilsActions::BakeSelectedToInstanceMesh(OverrideMaterial.Get());
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnBakeToMergedInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToMergedInstanceMesh();
+    FMapUtilsActions::BakeSelectedToMergedInstanceMesh(OverrideMaterial.Get());
     return FReply::Handled();
+}
+
+FString SMapUtilsPanel::GetOverrideMaterialPath() const
+{
+    if (UMaterialInterface* Mat = OverrideMaterial.Get())
+    {
+        return Mat->GetPathName();
+    }
+    return FString();
+}
+
+void SMapUtilsPanel::OnOverrideMaterialChanged(const FAssetData& AssetData)
+{
+    OverrideMaterial = Cast<UMaterialInterface>(AssetData.GetAsset());
 }
 
 FReply SMapUtilsPanel::OnCreateBlockingVolumeClicked()

@@ -179,18 +179,9 @@ namespace
         // BV brush is unit-scaled relative to its actor; bake actor scale into the world size so the
         // unit brush plus actor-rotation transform places the volume tightly.
         OutWorldSize = LocalSize * ActorXf.GetScale3D();
-        OutBvWorldXf = FTransform(
-            ActorXf.GetRotation(),
-            ActorXf.TransformPosition(LocalCenter),
-            FVector::OneVector);
+        OutBvWorldXf = FTransform(ActorXf.GetRotation(), ActorXf.TransformPosition(LocalCenter), FVector::OneVector);
 
-        UE_LOG(LogMapUtils, Verbose,
-            TEXT("ComputeActorObb: actor=%s, localCenter=(%.1f,%.1f,%.1f) localSize=(%.1f,%.1f,%.1f) -> worldLoc=(%.1f,%.1f,%.1f) worldSize=(%.1f,%.1f,%.1f)"),
-            *Actor->GetName(),
-            LocalCenter.X, LocalCenter.Y, LocalCenter.Z,
-            LocalSize.X, LocalSize.Y, LocalSize.Z,
-            OutBvWorldXf.GetLocation().X, OutBvWorldXf.GetLocation().Y, OutBvWorldXf.GetLocation().Z,
-            OutWorldSize.X, OutWorldSize.Y, OutWorldSize.Z);
+        UE_LOG(LogMapUtils, Verbose, TEXT("ComputeActorObb: actor=%s, localCenter=(%.1f,%.1f,%.1f) localSize=(%.1f,%.1f,%.1f) -> worldLoc=(%.1f,%.1f,%.1f) worldSize=(%.1f,%.1f,%.1f)"), *Actor->GetName(), LocalCenter.X, LocalCenter.Y, LocalCenter.Z, LocalSize.X, LocalSize.Y, LocalSize.Z, OutBvWorldXf.GetLocation().X, OutBvWorldXf.GetLocation().Y, OutBvWorldXf.GetLocation().Z, OutWorldSize.X, OutWorldSize.Y, OutWorldSize.Z);
 
         return true;
     }
@@ -244,8 +235,7 @@ namespace
         // local space which is independent of actor rotation, so building after spawning rotated is
         // fine. Avoids the late-apply rotation path which left brush bounds and visible mesh out of
         // sync in some configurations.
-        ABlockingVolume* Volume = World->SpawnActor<ABlockingVolume>(
-            ABlockingVolume::StaticClass(), BvXf, SpawnParams);
+        ABlockingVolume* Volume = World->SpawnActor<ABlockingVolume>(ABlockingVolume::StaticClass(), BvXf, SpawnParams);
         if (!Volume)
         {
             UE_LOG(LogMapUtils, Error, TEXT("SpawnActor<ABlockingVolume> failed."));
@@ -268,8 +258,7 @@ namespace
     }
 }
 
-FMapUtilsBlockingVolumeWrapResult FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(
-    const TArray<AActor*>& Actors)
+FMapUtilsBlockingVolumeWrapResult FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(const TArray<AActor*>& Actors)
 {
     FMapUtilsBlockingVolumeWrapResult Result;
 
@@ -291,15 +280,13 @@ FMapUtilsBlockingVolumeWrapResult FMapUtilsBlockingVolumeOps::CreateBlockingVolu
         else if (IsValid(Actor))
         {
             ++Result.SkippedActorCount;
-            UE_LOG(LogMapUtils, Verbose, TEXT("CreateBlockingVolumeForActors: skipping %s (no usable bounds)"),
-                *Actor->GetName());
+            UE_LOG(LogMapUtils, Verbose, TEXT("CreateBlockingVolumeForActors: skipping %s (no usable bounds)"), *Actor->GetName());
         }
     }
 
     if (Acceptable.IsEmpty())
     {
-        Result.ErrorText = LOCTEXT("NoBounds",
-            "No valid actor with primitive bounds in selection. Select actors with static / skeletal / brush components.");
+        Result.ErrorText = LOCTEXT("NoBounds", "No valid actor with primitive bounds in selection. Select actors with static / skeletal / brush components.");
         return Result;
     }
 
@@ -365,11 +352,7 @@ FMapUtilsBlockingVolumeWrapResult FMapUtilsBlockingVolumeOps::CreateBlockingVolu
         GEditor->SelectActor(Volume, true, true);
     }
 
-    UE_LOG(LogMapUtils, Log,
-        TEXT("CreateBlockingVolumeForActors: wrapping %d actor(s), skipped %d, mode=%s, size=(%.1f, %.1f, %.1f)"),
-        Result.SourceActorCount, Result.SkippedActorCount,
-        Acceptable.Num() == 1 ? TEXT("OBB") : TEXT("AABB"),
-        Size.X, Size.Y, Size.Z);
+    UE_LOG(LogMapUtils, Log, TEXT("CreateBlockingVolumeForActors: wrapping %d actor(s), skipped %d, mode=%s, size=(%.1f, %.1f, %.1f)"), Result.SourceActorCount, Result.SkippedActorCount, Acceptable.Num() == 1 ? TEXT("OBB") : TEXT("AABB"), Size.X, Size.Y, Size.Z);
 
     return Result;
 }

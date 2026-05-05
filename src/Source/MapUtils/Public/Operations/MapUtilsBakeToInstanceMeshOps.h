@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 
 class AStaticMeshActor;
+class UMaterialInterface;
 
 struct FMapUtilsBakeInstanceResult
 {
@@ -21,6 +22,9 @@ struct FMapUtilsBakeInstanceResult
 class FMapUtilsBakeToInstanceMeshOps
 {
 public:
-    static FMapUtilsBakeInstanceResult BakeToInstanceMesh(
-        const TArray<AStaticMeshActor*>& Actors);
+    /**
+     * @param OverrideMaterial  When non-null, every ISMC slot on each spawned actor is forced to this
+     *                          material after the source-component settings have been migrated.
+     */
+    static FMapUtilsBakeInstanceResult BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors, UMaterialInterface* OverrideMaterial = nullptr);
 };

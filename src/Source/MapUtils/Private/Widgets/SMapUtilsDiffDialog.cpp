@@ -45,8 +45,7 @@ public:
     void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTable)
     {
         Row = InArgs._Row;
-        SMultiColumnTableRow<TSharedPtr<FMapUtilsDiffRow>>::Construct(
-            FSuperRowType::FArguments(), OwnerTable);
+        SMultiColumnTableRow<TSharedPtr<FMapUtilsDiffRow>>::Construct(FSuperRowType::FArguments(), OwnerTable);
     }
 
     virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
@@ -63,9 +62,7 @@ public:
                     SNew(SCheckBox)
                     .IsChecked_Lambda([this]()
                     {
-                        return Row.IsValid() && Row->bChecked
-                            ? ECheckBoxState::Checked
-                            : ECheckBoxState::Unchecked;
+                        return Row.IsValid() && Row->bChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
                     })
                     .OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
                     {
@@ -143,8 +140,7 @@ void SMapUtilsDiffDialog::Construct(const FArguments& InArgs)
             .Padding(0, 0, 0, 4)
             [
                 SNew(STextBlock)
-                .Text(LOCTEXT("Header",
-                    "Actors touched in this editor session. Checkboxes filter Move."))
+                .Text(LOCTEXT("Header", "Actors touched in this editor session. Checkboxes filter Move."))
                 .AutoWrapText(true)
             ]
 
@@ -283,8 +279,7 @@ void SMapUtilsDiffDialog::RefreshList()
     }
 }
 
-TSharedRef<ITableRow> SMapUtilsDiffDialog::OnGenerateRow(
-    TSharedPtr<FMapUtilsDiffRow> Row, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SMapUtilsDiffDialog::OnGenerateRow(TSharedPtr<FMapUtilsDiffRow> Row, const TSharedRef<STableViewBase>& OwnerTable)
 {
     return SNew(SMapUtilsDiffRowWidget, OwnerTable).Row(Row);
 }
@@ -298,8 +293,7 @@ FReply SMapUtilsDiffDialog::OnMoveClicked()
 
     if (Checked.IsEmpty())
     {
-        Log.Warning(LOCTEXT("NoCheckedActors",
-            "No actors checked. Tick one or more entries first."));
+        Log.Warning(LOCTEXT("NoCheckedActors", "No actors checked. Tick one or more entries first."));
         Log.Open(EMessageSeverity::Info, true);
         return FReply::Handled();
     }

@@ -24,6 +24,5 @@ public:
      * spawns into the level of the first acceptable actor. Existing BlockingVolumes in the selection
      * are skipped to avoid recursive wrap-of-self.
      */
-    static FMapUtilsBlockingVolumeWrapResult CreateBlockingVolumeForActors(
-        const TArray<AActor*>& Actors);
+    static FMapUtilsBlockingVolumeWrapResult CreateBlockingVolumeForActors(const TArray<AActor*>& Actors);
 };

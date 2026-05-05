@@ -15,7 +15,5 @@ struct FMapUtilsReplaceResult
 class FMapUtilsReplaceStaticMeshOps
 {
 public:
-    static FMapUtilsReplaceResult ReplaceStaticMesh(
-        const TArray<AStaticMeshActor*>& Actors,
-        UStaticMesh* NewMesh);
+    static FMapUtilsReplaceResult ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh);
 };

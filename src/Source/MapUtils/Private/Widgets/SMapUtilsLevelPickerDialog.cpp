@@ -96,8 +96,7 @@ void SMapUtilsLevelPickerDialog::Construct(const FArguments& InArgs)
     ];
 }
 
-TSharedRef<ITableRow> SMapUtilsLevelPickerDialog::OnGenerateRow(
-    TSharedPtr<FLevelItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SMapUtilsLevelPickerDialog::OnGenerateRow(TSharedPtr<FLevelItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
     return SNew(STableRow<TSharedPtr<FLevelItem>>, OwnerTable)
         [
@@ -107,8 +106,7 @@ TSharedRef<ITableRow> SMapUtilsLevelPickerDialog::OnGenerateRow(
         ];
 }
 
-void SMapUtilsLevelPickerDialog::OnSelectionChanged(
-    TSharedPtr<FLevelItem> Item, ESelectInfo::Type /*SelectInfo*/)
+void SMapUtilsLevelPickerDialog::OnSelectionChanged(TSharedPtr<FLevelItem> Item, ESelectInfo::Type /*SelectInfo*/)
 {
     if (Item.IsValid())
     {

@@ -128,35 +128,28 @@ void FMapUtilsActions::CreateBlockingVolumeFromSelection()
 
     if (Actors.IsEmpty())
     {
-        Log.Warning(LOCTEXT("CreateBVNoSelection",
-            "No actor selected. Select one or more in the Outliner / viewport first."));
+        Log.Warning(LOCTEXT("CreateBVNoSelection", "No actor selected. Select one or more in the Outliner / viewport first."));
         Log.Open(EMessageSeverity::Warning, true);
         return;
     }
 
-    const FMapUtilsBlockingVolumeWrapResult Result =
-        FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
+    const FMapUtilsBlockingVolumeWrapResult Result = FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
 
     if (Result.bSuccess)
     {
-        const FText Message = FText::Format(
-            LOCTEXT("CreateBVOK",
-                "Created 1 BlockingVolume wrapping {0} actor(s). Skipped {1}. Sources preserved. Ctrl+Z to undo."),
-            Result.SourceActorCount, Result.SkippedActorCount);
+        const FText Message = FText::Format(LOCTEXT("CreateBVOK", "Created 1 BlockingVolume wrapping {0} actor(s). Skipped {1}. Sources preserved. Ctrl+Z to undo."), Result.SourceActorCount, Result.SkippedActorCount);
         Log.Info(Message);
         // Success path: keep MessageLog updated but don't steal focus.
     }
     else
     {
-        const FText Message = Result.ErrorText.IsEmpty()
-            ? LOCTEXT("CreateBVFail", "Create BlockingVolume failed. See Output Log.")
-            : Result.ErrorText;
+        const FText Message = Result.ErrorText.IsEmpty() ? LOCTEXT("CreateBVFail", "Create BlockingVolume failed. See Output Log.") : Result.ErrorText;
         Log.Error(Message);
         Log.Open(EMessageSeverity::Error, true);
     }
 }
 
-void FMapUtilsActions::BakeSelectedToInstanceMesh()
+void FMapUtilsActions::BakeSelectedToInstanceMesh(UMaterialInterface* OverrideMaterial)
 {
     const TArray<AStaticMeshActor*> Actors = GatherSelectedSMA();
 
@@ -165,35 +158,28 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh()
 
     if (Actors.IsEmpty())
     {
-        Log.Warning(LOCTEXT("BakeInstanceNoSelection",
-            "No StaticMeshActor selected. Select one or more in the Outliner / viewport first."));
+        Log.Warning(LOCTEXT("BakeInstanceNoSelection", "No StaticMeshActor selected. Select one or more in the Outliner / viewport first."));
         Log.Open(EMessageSeverity::Warning, true);
         return;
     }
 
-    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
+    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors, OverrideMaterial);
 
     if (Result.bSuccess)
     {
-        const FText Message = FText::Format(
-            LOCTEXT("BakeInstanceOK", "Baked {0} actor(s) into {1} ISM actor(s). Ctrl+Z to undo."),
-            Result.SourceActorCount, Result.CreatedActorCount);
+        const FText Message = FText::Format(LOCTEXT("BakeInstanceOK", "Baked {0} actor(s) into {1} ISM actor(s). Ctrl+Z to undo."), Result.SourceActorCount, Result.CreatedActorCount);
         Log.Info(Message);
     }
     else
     {
-        const FText Message = Result.ErrorText.IsEmpty()
-            ? LOCTEXT("BakeInstanceFail", "Bake to Instance Mesh failed. See Output Log.")
-            : Result.ErrorText;
+        const FText Message = Result.ErrorText.IsEmpty() ? LOCTEXT("BakeInstanceFail", "Bake to Instance Mesh failed. See Output Log.") : Result.ErrorText;
         Log.Error(Message);
     }
 
     // Surface partial failure (some sources spawned, some didn't) without forcing the user to scrape logs.
     for (const FString& FailedName : Result.FailedSourceNames)
     {
-        Log.Warning(FText::Format(
-            LOCTEXT("BakeInstancePartialFail", "Failed to spawn ISM actor for '{0}'. Source actor preserved."),
-            FText::FromString(FailedName)));
+        Log.Warning(FText::Format(LOCTEXT("BakeInstancePartialFail", "Failed to spawn ISM actor for '{0}'. Source actor preserved."), FText::FromString(FailedName)));
     }
 
     // Open only on total or partial failure, otherwise leave the log silent.
@@ -203,7 +189,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh()
     }
 }
 
-void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
+void FMapUtilsActions::BakeSelectedToMergedInstanceMesh(UMaterialInterface* OverrideMaterial)
 {
     const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
@@ -212,14 +198,12 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
 
     if (Actors.IsEmpty())
     {
-        Log.Warning(LOCTEXT("BakeMergedInstanceNoSelection",
-            "No actor selected. Select StaticMeshActors or previously-baked ISMActors in the Outliner / viewport."));
+        Log.Warning(LOCTEXT("BakeMergedInstanceNoSelection", "No actor selected. Select StaticMeshActors or previously-baked ISMActors in the Outliner / viewport."));
         Log.Open(EMessageSeverity::Warning, true);
         return;
     }
 
-    const FMapUtilsBakeMergedInstanceResult Result =
-        FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
+    const FMapUtilsBakeMergedInstanceResult Result = FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors, OverrideMaterial);
 
     if (Result.bUserCancelled)
     {
@@ -228,21 +212,12 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
 
     if (Result.bSuccess)
     {
-        const FText Message = FText::Format(
-            LOCTEXT("BakeMergedInstanceOK",
-                "Merged {0} source(s) -> 1 ISM actor with {1} instance(s) across {2} ISMC group(s). "
-                "Skipped {3} non-mesh actor(s). Ctrl+Z to undo."),
-            Result.SourceActorCount,
-            Result.InstanceCount,
-            Result.GroupCount,
-            Result.SkippedActorCount);
+        const FText Message = FText::Format(LOCTEXT("BakeMergedInstanceOK", "Merged {0} source(s) -> 1 ISM actor with {1} instance(s) across {2} ISMC group(s). Skipped {3} non-mesh actor(s). Ctrl+Z to undo."), Result.SourceActorCount, Result.InstanceCount, Result.GroupCount, Result.SkippedActorCount);
         Log.Info(Message);
     }
     else
     {
-        const FText Message = Result.ErrorText.IsEmpty()
-            ? LOCTEXT("BakeMergedInstanceFail", "Bake to Merged Instance Mesh failed. See Output Log.")
-            : Result.ErrorText;
+        const FText Message = Result.ErrorText.IsEmpty() ? LOCTEXT("BakeMergedInstanceFail", "Bake to Merged Instance Mesh failed. See Output Log.") : Result.ErrorText;
         Log.Error(Message);
         Log.Open(EMessageSeverity::Error, true);
     }

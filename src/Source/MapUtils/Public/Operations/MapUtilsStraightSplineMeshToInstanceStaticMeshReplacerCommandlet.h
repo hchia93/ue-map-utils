@@ -13,6 +13,13 @@ class UStaticMesh;
  * bend on any segment) with a per-actor wrapper that hosts one InstancedStaticMeshComponent
  * per unique mesh asset, with one instance per source segment.
  *
+ * Motivation: spline-mesh dressings (railings, fences, beams) are heavy at runtime even when
+ * authored with no actual curvature, because each segment is its own deformed
+ * USplineMeshComponent. Once the spline is straight the mesh is just a translated /
+ * rotated / forward-scaled copy of the source mesh, which an ISMC handles for free.
+ * This commandlet detects those cases, bakes each segment to a static transform, and
+ * collapses the actor's segments into one ISMC per unique mesh.
+ *
  * Eligibility: every USplineMeshComponent on the actor must satisfy
  *      dot(StartTangent.norm, EndTangent.norm)   > TangentParallelDot
  *  AND dot(StartTangent.norm, Chord.norm)        > TangentChordDot
@@ -108,32 +115,17 @@ private:
 
     bool ParseOptions(const FString& Params, FOptions& OutOptions) const;
 
-    bool ResolveCandidateClasses(
-        const TArray<FString>& CandidateAssetPaths,
-        TArray<UClass*>& OutClasses) const;
+    bool ResolveCandidateClasses(const TArray<FString>& CandidateAssetPaths, TArray<UClass*>& OutClasses) const;
 
-    bool ProcessLevel(
-        const FString& LevelPath,
-        const TArray<UClass*>& CandidateClasses,
-        const FOptions& Opts,
-        FLevelResult& OutResult) const;
+    bool ProcessLevel(const FString& LevelPath, const TArray<UClass*>& CandidateClasses, const FOptions& Opts, FLevelResult& OutResult) const;
 
     // Inspect a candidate actor, classify each spline mesh segment, populate Record.
     // Does not mutate. Returns true if Record.bAllStraight.
-    bool AnalyzeActor(
-        AActor* OldActor,
-        const FOptions& Opts,
-        FActorRecord& OutRecord) const;
+    bool AnalyzeActor(AActor* OldActor, const FOptions& Opts, FActorRecord& OutRecord) const;
 
     // Replace OldActor with a new ISM-hosting actor at OldActor's world transform.
     // Mutates the world. Caller saves the package.
-    bool ReplaceActor(
-        AActor* OldActor,
-        UWorld* World,
-        FActorRecord& InOutRecord) const;
+    bool ReplaceActor(AActor* OldActor, UWorld* World, FActorRecord& InOutRecord) const;
 
-    bool WriteManifest(
-        const FString& ManifestPath,
-        const TArray<FLevelResult>& LevelResults,
-        const FOptions& Opts) const;
+    bool WriteManifest(const FString& ManifestPath, const TArray<FLevelResult>& LevelResults, const FOptions& Opts) const;
 };

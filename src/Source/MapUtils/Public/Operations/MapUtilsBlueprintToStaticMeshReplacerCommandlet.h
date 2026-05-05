@@ -13,10 +13,16 @@ class UStaticMeshComponent;
  * is to wrap a single StaticMeshComponent under a custom pivot or default bundle)
  * with plain AStaticMeshActor across one or more level packages.
  *
+ * Motivation: level dressing pipelines accumulate one-mesh BP wrappers (custom pivot,
+ * shared collision profile, etc.) that have no scripted behavior. They cost an extra
+ * actor class, hide vertex paint behind archetype indirection, and break batched
+ * editor ops that key on AStaticMeshActor. Flattening them back to plain SMAs is
+ * mechanical but error-prone by hand: vertex colors, custom primitive data, body
+ * instance overrides, and BP-root-vs-component mobility all need explicit care.
+ *
  * Modify phase of the workflow. The snapshot phase (BlueprintEdGraphExport ->
- * Script/BlueprintToStaticMeshReplacer/classify.py ->
- * Script/BlueprintToStaticMeshReplacer/discover_levels.py) must run first to
- * produce the candidate list.
+ * classify.py -> discover_levels.py under Script/BlueprintToStaticMeshReplacer/)
+ * must run first to produce the candidate list.
  *
  * Usage:
  *   UnrealEditor-Cmd.exe Project.uproject -run=MapUtilsBlueprintToStaticMeshReplacer
@@ -96,25 +102,11 @@ private:
 
     bool ParseOptions(const FString& Params, FOptions& OutOptions) const;
 
-    bool ResolveCandidateClasses(
-        const TArray<FString>& CandidateAssetPaths,
-        TArray<UClass*>& OutClasses) const;
+    bool ResolveCandidateClasses(const TArray<FString>& CandidateAssetPaths, TArray<UClass*>& OutClasses) const;
 
-    bool ProcessLevel(
-        const FString& LevelPath,
-        const TArray<UClass*>& CandidateClasses,
-        bool bDryRun,
-        FLevelResult& OutResult) const;
+    bool ProcessLevel(const FString& LevelPath, const TArray<UClass*>& CandidateClasses, bool bDryRun, FLevelResult& OutResult) const;
 
-    bool ReplaceInstance(
-        AActor* OldActor,
-        UWorld* World,
-        UClass* MatchedClass,
-        bool bDryRun,
-        FReplaceRecord& OutRecord) const;
+    bool ReplaceInstance(AActor* OldActor, UWorld* World, UClass* MatchedClass, bool bDryRun, FReplaceRecord& OutRecord) const;
 
-    bool WriteManifest(
-        const FString& ManifestPath,
-        const TArray<FLevelResult>& LevelResults,
-        bool bDryRun) const;
+    bool WriteManifest(const FString& ManifestPath, const TArray<FLevelResult>& LevelResults, bool bDryRun) const;
 };

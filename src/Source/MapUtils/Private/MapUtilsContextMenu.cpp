@@ -58,21 +58,13 @@ void FMapUtilsContextMenu::Register()
         return;
     }
 
-    FToolMenuSection& Section = ActorMenu->FindOrAddSection(
-        MapUtilsSection,
-        LOCTEXT("MapUtilsSection", "Map Utils"));
+    FToolMenuSection& Section = ActorMenu->FindOrAddSection(MapUtilsSection, LOCTEXT("MapUtilsSection", "Map Utils"));
 
     FUIAction Action;
     Action.ExecuteAction = FExecuteAction::CreateStatic(&FMapUtilsContextMenu::OnReplaceStaticMesh);
     Action.CanExecuteAction = FCanExecuteAction::CreateStatic(&FMapUtilsContextMenu::CanReplaceStaticMesh);
 
-    Section.AddMenuEntry(
-        TEXT("ReplaceStaticMesh"),
-        LOCTEXT("ReplaceStaticMesh", "Replace StaticMesh..."),
-        LOCTEXT("ReplaceStaticMeshTooltip",
-            "Pick a StaticMesh asset and apply to all selected StaticMeshActors. Undo-safe."),
-        FSlateIcon(),
-        Action);
+    Section.AddMenuEntry(TEXT("ReplaceStaticMesh"), LOCTEXT("ReplaceStaticMesh", "Replace StaticMesh..."), LOCTEXT("ReplaceStaticMeshTooltip", "Pick a StaticMesh asset and apply to all selected StaticMeshActors. Undo-safe."), FSlateIcon(), Action);
 }
 
 void FMapUtilsContextMenu::Unregister()

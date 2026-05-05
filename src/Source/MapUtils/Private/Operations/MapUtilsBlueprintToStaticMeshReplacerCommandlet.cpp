@@ -1,5 +1,8 @@
 #include "Operations/MapUtilsBlueprintToStaticMeshReplacerCommandlet.h"
 
+// Editor-only by design: drives UEditorEngine + package save. Trap any Runtime-type drift early.
+static_assert(WITH_EDITOR, "MapUtils commandlets are editor-only; keep MapUtils.uplugin Module Type=Editor.");
+
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -110,11 +113,7 @@ int32 UMapUtilsBlueprintToStaticMeshReplacerCommandlet::Main(const FString& Para
     {
         return 1;
     }
-    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: candidates=%d levels=%d dryRun=%s manifest=%s"),
-        Options.CandidateAssetPaths.Num(),
-        Options.LevelPaths.Num(),
-        Options.bDryRun ? TEXT("true") : TEXT("false"),
-        *Options.ManifestPath);
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: candidates=%d levels=%d dryRun=%s manifest=%s"), Options.CandidateAssetPaths.Num(), Options.LevelPaths.Num(), Options.bDryRun ? TEXT("true") : TEXT("false"), *Options.ManifestPath);
 
     TArray<UClass*> CandidateClasses;
     if (!ResolveCandidateClasses(Options.CandidateAssetPaths, CandidateClasses))
@@ -138,13 +137,7 @@ int32 UMapUtilsBlueprintToStaticMeshReplacerCommandlet::Main(const FString& Para
         }
         LevelResults.Add(LevelResult);
 
-        UE_LOG(LogMapUtils, Display,
-            TEXT("BlueprintToStaticMeshReplacer: %s -> found=%d replaced=%d saved=%s reason=%s"),
-            *LevelPath,
-            LevelResult.InstancesFound,
-            LevelResult.InstancesReplaced,
-            LevelResult.bSaved ? TEXT("true") : TEXT("false"),
-            *LevelResult.FailReason);
+        UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: %s -> found=%d replaced=%d saved=%s reason=%s"), *LevelPath, LevelResult.InstancesFound, LevelResult.InstancesReplaced, LevelResult.bSaved ? TEXT("true") : TEXT("false"), *LevelResult.FailReason);
 
         // GC between levels so package memory is reclaimed before the next load.
         CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
@@ -168,10 +161,7 @@ int32 UMapUtilsBlueprintToStaticMeshReplacerCommandlet::Main(const FString& Para
         }
     }
 
-    UE_LOG(LogMapUtils, Display,
-        TEXT("BlueprintToStaticMeshReplacer: complete. levels=%d red=%d instances_found=%d instances_replaced=%d (dryRun=%s)"),
-        LevelResults.Num(), LevelsRed, TotalFound, TotalReplaced,
-        Options.bDryRun ? TEXT("true") : TEXT("false"));
+    UE_LOG(LogMapUtils, Display, TEXT("BlueprintToStaticMeshReplacer: complete. levels=%d red=%d instances_found=%d instances_replaced=%d (dryRun=%s)"), LevelResults.Num(), LevelsRed, TotalFound, TotalReplaced, Options.bDryRun ? TEXT("true") : TEXT("false"));
 
     return LevelsRed > 0 ? 2 : 0;
 }
@@ -209,10 +199,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ParseOptions(const FStrin
     {
         // Default: Intermediate/BlueprintToStaticMeshReplacer/Manifest/<timestamp>.json
         const FString Stamp = FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
-        OutOptions.ManifestPath = FPaths::Combine(
-            FPaths::ProjectDir(),
-            TEXT("Intermediate"), TEXT("BlueprintToStaticMeshReplacer"), TEXT("Manifest"),
-            FString::Printf(TEXT("%s.json"), *Stamp));
+        OutOptions.ManifestPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Intermediate"), TEXT("BlueprintToStaticMeshReplacer"), TEXT("Manifest"), FString::Printf(TEXT("%s.json"), *Stamp));
     }
     OutOptions.ManifestPath.TrimQuotesInline();
 
@@ -221,9 +208,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ParseOptions(const FStrin
     return true;
 }
 
-bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ResolveCandidateClasses(
-    const TArray<FString>& CandidateAssetPaths,
-    TArray<UClass*>& OutClasses) const
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ResolveCandidateClasses(const TArray<FString>& CandidateAssetPaths, TArray<UClass*>& OutClasses) const
 {
     OutClasses.Reset();
     OutClasses.Reserve(CandidateAssetPaths.Num());
@@ -241,11 +226,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ResolveCandidateClasses(
     return OutClasses.Num() > 0;
 }
 
-bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ProcessLevel(
-    const FString& LevelPath,
-    const TArray<UClass*>& CandidateClasses,
-    bool bDryRun,
-    FLevelResult& OutResult) const
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ProcessLevel(const FString& LevelPath, const TArray<UClass*>& CandidateClasses, bool bDryRun, FLevelResult& OutResult) const
 {
     UPackage* Package = LoadPackage(nullptr, *LevelPath, LOAD_None);
     if (!Package)
@@ -324,8 +305,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ProcessLevel(
     }
 
     // Save the package
-    const FString PackageFilename = FPackageName::LongPackageNameToFilename(
-        Package->GetName(), FPackageName::GetMapPackageExtension());
+    const FString PackageFilename = FPackageName::LongPackageNameToFilename(Package->GetName(), FPackageName::GetMapPackageExtension());
 
     FSavePackageArgs SaveArgs;
     SaveArgs.TopLevelFlags = RF_Standalone;
@@ -344,12 +324,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ProcessLevel(
     return true;
 }
 
-bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
-    AActor* OldActor,
-    UWorld* World,
-    UClass* MatchedClass,
-    bool bDryRun,
-    FReplaceRecord& OutRecord) const
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(AActor* OldActor, UWorld* World, UClass* MatchedClass, bool bDryRun, FReplaceRecord& OutRecord) const
 {
     OutRecord.OldActorName  = OldActor->GetName();
     OutRecord.OldActorLabel = OldActor->GetActorLabel();
@@ -383,8 +358,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
     const int32 SlotCount = Mesh->GetStaticMaterials().Num();
     if (!TrimOverrideMaterials(Mats, SlotCount))
     {
-        OutRecord.FailReason = FString::Printf(
-            TEXT("OverrideMaterials beyond slot %d are non-null (data loss risk)"), SlotCount);
+        OutRecord.FailReason = FString::Printf(TEXT("OverrideMaterials beyond slot %d are non-null (data loss risk)"), SlotCount);
         return false;
     }
     for (UMaterialInterface* M : Mats)
@@ -408,11 +382,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
     SpawnParams.OverrideLevel = OldActor->GetLevel();
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     SpawnParams.bDeferConstruction = true; // we want to set props before BeginPlay
-    AStaticMeshActor* NewSMA = World->SpawnActor<AStaticMeshActor>(
-        AStaticMeshActor::StaticClass(),
-        FVector::ZeroVector,
-        FRotator::ZeroRotator,
-        SpawnParams);
+    AStaticMeshActor* NewSMA = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
     if (!NewSMA)
     {
         OutRecord.FailReason = TEXT("SpawnActor<AStaticMeshActor> returned null");
@@ -478,6 +448,8 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
                 {
                     Colors[v] = OldCVB->VertexColor(v);
                 }
+                // LODInfo dtor takes ownership; ensure guards against SetLODDataCount returning a non-null stale slot.
+                ensure(NewLOD.OverrideVertexColors == nullptr);
                 NewLOD.OverrideVertexColors = new FColorVertexBuffer();
                 NewLOD.OverrideVertexColors->InitFromColorArray(Colors);
                 BeginInitResource(NewLOD.OverrideVertexColors, nullptr);
@@ -511,10 +483,7 @@ bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::ReplaceInstance(
     return true;
 }
 
-bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::WriteManifest(
-    const FString& ManifestPath,
-    const TArray<FLevelResult>& LevelResults,
-    bool bDryRun) const
+bool UMapUtilsBlueprintToStaticMeshReplacerCommandlet::WriteManifest(const FString& ManifestPath, const TArray<FLevelResult>& LevelResults, bool bDryRun) const
 {
     TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
     Root->SetStringField(TEXT("phase"), bDryRun ? TEXT("modify-dryrun") : TEXT("modify"));

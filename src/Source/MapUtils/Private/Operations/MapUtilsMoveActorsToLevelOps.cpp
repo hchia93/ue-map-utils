@@ -9,9 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "MapUtilsMoveActorsToLevelOps"
 
-FMapUtilsMoveResult FMapUtilsMoveActorsToLevelOps::MoveActorsToLevel(
-    const TArray<AActor*>& Actors,
-    ULevel* DestLevel)
+FMapUtilsMoveResult FMapUtilsMoveActorsToLevelOps::MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel)
 {
     FMapUtilsMoveResult Result;
 
@@ -32,13 +30,7 @@ FMapUtilsMoveResult FMapUtilsMoveActorsToLevelOps::MoveActorsToLevel(
     FScopedTransaction Transaction(LOCTEXT("MoveActorsToLevel", "Move Actors to Level"));
 
     TArray<AActor*> OutMoved;
-    const int32 Moved = UEditorLevelUtils::MoveActorsToLevel(
-        Actors,
-        DestLevel,
-        /*bWarnAboutReferences=*/ true,
-        /*bWarnAboutRenaming=*/ true,
-        /*bMoveAllOrFail=*/ false,
-        &OutMoved);
+    const int32 Moved = UEditorLevelUtils::MoveActorsToLevel(Actors, DestLevel, /*bWarnAboutReferences=*/ true, /*bWarnAboutRenaming=*/ true, /*bMoveAllOrFail=*/ false, &OutMoved);
 
     Result.MovedCount = Moved;
     Result.bSuccess = Moved > 0;

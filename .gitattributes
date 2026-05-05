@@ -1,0 +1,5 @@
+# Force LF line endings for all text files. The plugin sources are mirrored
+# from a Windows SVN working copy where files are stored with LF, so without
+# this every fresh checkout would normalise to CRLF and show every file as
+# modified on the next sync.
+* text=auto eol=lf

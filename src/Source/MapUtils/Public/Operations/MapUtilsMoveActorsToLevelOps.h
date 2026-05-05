@@ -15,7 +15,5 @@ struct FMapUtilsMoveResult
 class FMapUtilsMoveActorsToLevelOps
 {
 public:
-    static FMapUtilsMoveResult MoveActorsToLevel(
-        const TArray<AActor*>& Actors,
-        ULevel* DestLevel);
+    static FMapUtilsMoveResult MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel);
 };

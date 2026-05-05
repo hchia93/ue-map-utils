@@ -14,12 +14,9 @@ const FName FMapUtilsTabSpawner::TabName(TEXT("MapUtilsTab"));
 
 void FMapUtilsTabSpawner::Register()
 {
-    FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
-        TabName,
-        FOnSpawnTab::CreateStatic(&FMapUtilsTabSpawner::SpawnPanelTab))
+    FGlobalTabmanager::Get()->RegisterNomadTabSpawner(TabName, FOnSpawnTab::CreateStatic(&FMapUtilsTabSpawner::SpawnPanelTab))
         .SetDisplayName(LOCTEXT("TabTitle", "Map Utils"))
-        .SetTooltipText(LOCTEXT("TabTooltip",
-            "Level designer tools: audit StaticMesh refs, convert to blocking volumes, export context for AI."))
+        .SetTooltipText(LOCTEXT("TabTooltip", "Level designer tools: audit StaticMesh refs, convert to blocking volumes, export context for AI."))
         .SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
         .SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Details"));
 }

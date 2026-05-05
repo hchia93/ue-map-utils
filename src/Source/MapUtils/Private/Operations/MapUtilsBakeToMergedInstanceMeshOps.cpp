@@ -13,6 +13,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "Materials/MaterialInterface.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MapUtilsBakeToMergedInstanceMeshOps"
@@ -43,27 +44,11 @@ namespace
         {
             return true;
         }
-        // Explicit marker tag, set by these bake ops (and any external pipeline that opts in).
-        if (Actor->ActorHasTag(MapUtilsIsmBaked::Tag))
-        {
-            return true;
-        }
-        // Fallback: vanilla AActor with at least one ISMC, regardless of root type.
-        // Picks up legacy bake output that pre-dates the marker tag.
-        if (Actor->GetClass() == AActor::StaticClass())
-        {
-            TArray<UInstancedStaticMeshComponent*> Ismcs;
-            Actor->GetComponents<UInstancedStaticMeshComponent>(Ismcs);
-            return !Ismcs.IsEmpty();
-        }
-        return false;
+        // Tag required even for AActor + ISMC; otherwise third-party ISM hosts get absorbed.
+        return Actor->ActorHasTag(MapUtilsIsmBaked::Tag);
     }
 
-    void HarvestFromComponent(
-        AActor* OwningActor,
-        UStaticMeshComponent* SMC,
-        TArray<FInstanceEntry>& OutEntries,
-        TArray<FMapUtilsBakeProfileSample>& OutSamples)
+    void HarvestFromComponent(AActor* OwningActor, UStaticMeshComponent* SMC, TArray<FInstanceEntry>& OutEntries, TArray<FMapUtilsBakeProfileSample>& OutSamples)
     {
         if (!SMC || !SMC->GetStaticMesh())
         {
@@ -105,10 +90,10 @@ namespace
     }
 }
 
-FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(
-    const TArray<AActor*>& Actors)
+FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(const TArray<AActor*>& Actors, UMaterialInterface* OverrideMaterial)
 {
     FMapUtilsBakeMergedInstanceResult Result;
+    const bool bHasOverrideMaterial = (OverrideMaterial != nullptr);
 
     TArray<AActor*> AcceptedSources;
     TArray<FInstanceEntry> Entries;
@@ -122,8 +107,7 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
             if (IsValid(Actor))
             {
                 ++Result.SkippedActorCount;
-                UE_LOG(LogMapUtils, Warning, TEXT("BakeToMergedInstanceMesh: skipping %s (class %s, not SMA or ISMActor)"),
-                    *Actor->GetName(), *Actor->GetClass()->GetName());
+                UE_LOG(LogMapUtils, Warning, TEXT("BakeToMergedInstanceMesh: skipping %s (class %s, not SMA or ISMActor)"), *Actor->GetName(), *Actor->GetClass()->GetName());
             }
             continue;
         }
@@ -154,9 +138,7 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
     // warn instead of silently re-creating the same actor.
     if (AcceptedSources.Num() == 1 && !AcceptedSources[0]->IsA<AStaticMeshActor>())
     {
-        Result.ErrorText = LOCTEXT("AlreadyMerged",
-            "Selection is a single already-baked ISM actor. Nothing to merge. "
-            "Add more StaticMeshActors / ISMActors to the selection, or use Bake to Instance Mesh on a fresh SMA instead.");
+        Result.ErrorText = LOCTEXT("AlreadyMerged", "Selection is a single already-baked ISM actor. Nothing to merge. Add more StaticMeshActors / ISMActors to the selection, or use Bake to Instance Mesh on a fresh SMA instead.");
         return Result;
     }
 
@@ -191,20 +173,20 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
             {
                 Parts.Add(FString::Printf(TEXT("%s=%d"), *Pair.Key.ToString(), Pair.Value));
             }
-            UE_LOG(LogMapUtils, Warning,
-                TEXT("BakeToMergedInstanceMesh: %d distinct collision profile(s) in selection [%s]; per-source profile preserved by ISMC group splitting."),
-                ProfileCounts.Num(), *FString::Join(Parts, TEXT(", ")));
+            UE_LOG(LogMapUtils, Warning, TEXT("BakeToMergedInstanceMesh: %d distinct collision profile(s) in selection [%s]; per-source profile preserved by ISMC group splitting."), ProfileCounts.Num(), *FString::Join(Parts, TEXT(", ")));
         }
     }
 
-    // Centroid pivot: average of all instance world locations.
-    FVector Centroid = FVector::ZeroVector;
+    // AABB-center pivot: union of all instance world-space mesh bounds.
+    // Density-independent (a clustered subset will not drag the pivot off-center).
+    FBox WorldBounds(ForceInit);
     for (const FInstanceEntry& Entry : Entries)
     {
-        Centroid += Entry.WorldXf.GetLocation();
+        UStaticMesh* Mesh = Entry.SourceSmc ? Entry.SourceSmc->GetStaticMesh() : nullptr;
+        const FBox LocalBounds = Mesh ? Mesh->GetBoundingBox() : FBox(Entry.WorldXf.GetLocation(), Entry.WorldXf.GetLocation());
+        WorldBounds += LocalBounds.TransformBy(Entry.WorldXf);
     }
-    Centroid /= static_cast<double>(Entries.Num());
-    const FTransform PivotXf(FRotator::ZeroRotator, Centroid);
+    const FTransform PivotXf(FRotator::ZeroRotator, WorldBounds.GetCenter());
 
     // Group instances by (groupable-settings equality, reverse culling).
     // Linear search; group counts stay small because most placements share settings.
@@ -214,7 +196,7 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
         const int32 Idx = Groups.IndexOfByPredicate([&](const FGroup& G)
         {
             return G.bReverseCulling == Entry.bReverseCulling
-                && MapUtilsComponentSettings::AreGroupableSettingsEqual(G.TemplateSmc, Entry.SourceSmc);
+                && MapUtilsComponentSettings::AreGroupableSettingsEqual(G.TemplateSmc, Entry.SourceSmc, bHasOverrideMaterial);
         });
         if (Idx == INDEX_NONE)
         {
@@ -253,8 +235,7 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
 
         for (const FGroup& Group : Groups)
         {
-            UInstancedStaticMeshComponent* Ismc = NewObject<UInstancedStaticMeshComponent>(
-                MergedActor, NAME_None, RF_Transactional);
+            UInstancedStaticMeshComponent* Ismc = NewObject<UInstancedStaticMeshComponent>(MergedActor, NAME_None, RF_Transactional);
             Ismc->Modify();
             Ismc->bHasPerInstanceHitProxies = true;
             Ismc->SetMobility(EComponentMobility::Static);
@@ -262,6 +243,16 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
 
             // Full settings migration from the representative source component.
             MapUtilsComponentSettings::Copy(Group.TemplateSmc, Ismc);
+
+            // ToolSetup override: stamp the chosen material onto every slot, after Copy so it wins.
+            if (bHasOverrideMaterial)
+            {
+                const int32 SlotCount = Ismc->GetNumMaterials();
+                for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
+                {
+                    Ismc->SetMaterial(SlotIdx, OverrideMaterial);
+                }
+            }
 
             Ismc->SetReverseCulling(Group.bReverseCulling);
 
@@ -318,9 +309,20 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
 
     Result.bSuccess = true;
 
-    UE_LOG(LogMapUtils, Log,
-        TEXT("BakeToMergedInstanceMesh: %d source(s) -> 1 actor with %d instances across %d ISMC group(s) (skipped %d)"),
-        Result.SourceActorCount, Result.InstanceCount, Result.GroupCount, Result.SkippedActorCount);
+    const FString OverrideMatName = bHasOverrideMaterial ? OverrideMaterial->GetName() : FString(TEXT("<none>"));
+    UE_LOG(LogMapUtils, Log, TEXT("BakeToMergedInstanceMesh: %d source(s) -> 1 actor with %d instances across %d ISMC group(s) (skipped %d, overrideMat=%s)"), Result.SourceActorCount, Result.InstanceCount, Result.GroupCount, Result.SkippedActorCount, *OverrideMatName);
+
+    // Per-group diagnostic. When the user expects 1 group but sees N, this surfaces the splitting reason
+    // (mesh / collision profile / reverse culling). Material divergence is omitted when overridden.
+    for (int32 GIdx = 0; GIdx < Groups.Num(); ++GIdx)
+    {
+        const FGroup& G = Groups[GIdx];
+        UStaticMesh* Mesh = G.TemplateSmc ? G.TemplateSmc->GetStaticMesh() : nullptr;
+        const FString MeshName = Mesh ? Mesh->GetName() : FString(TEXT("None"));
+        const FString ProfileName = G.TemplateSmc ? G.TemplateSmc->GetCollisionProfileName().ToString() : FString(TEXT("None"));
+        const int32 ReverseCullingFlag = G.bReverseCulling ? 1 : 0;
+        UE_LOG(LogMapUtils, Log, TEXT("  Group[%d]: mesh=%s instances=%d profile=%s reverseCulling=%d"), GIdx, *MeshName, G.WorldXfs.Num(), *ProfileName, ReverseCullingFlag);
+    }
 
     return Result;
 }

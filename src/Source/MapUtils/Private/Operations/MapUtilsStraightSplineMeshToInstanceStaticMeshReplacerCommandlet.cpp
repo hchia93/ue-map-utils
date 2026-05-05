@@ -1,5 +1,8 @@
 #include "Operations/MapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet.h"
 
+// Editor-only by design: drives UEditorEngine + package save. Trap any Runtime-type drift early.
+static_assert(WITH_EDITOR, "MapUtils commandlets are editor-only; keep MapUtils.uplugin Module Type=Editor.");
+
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/SplineMeshComponent.h"
@@ -99,14 +102,7 @@ int32 UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::Main(co
     {
         return 1;
     }
-    UE_LOG(LogMapUtils, Display,
-        TEXT("StraightSplineMeshToInstanceStaticMeshReplacer: candidates=%d levels=%d dryRun=%s tangentDot=%.4f chordDot=%.4f manifest=%s"),
-        Options.CandidateAssetPaths.Num(),
-        Options.LevelPaths.Num(),
-        Options.bDryRun ? TEXT("true") : TEXT("false"),
-        Options.TangentParallelDot,
-        Options.TangentChordDot,
-        *Options.ManifestPath);
+    UE_LOG(LogMapUtils, Display, TEXT("StraightSplineMeshToInstanceStaticMeshReplacer: candidates=%d levels=%d dryRun=%s tangentDot=%.4f chordDot=%.4f manifest=%s"), Options.CandidateAssetPaths.Num(), Options.LevelPaths.Num(), Options.bDryRun ? TEXT("true") : TEXT("false"), Options.TangentParallelDot, Options.TangentChordDot, *Options.ManifestPath);
 
     TArray<UClass*> CandidateClasses;
     if (!ResolveCandidateClasses(Options.CandidateAssetPaths, CandidateClasses))
@@ -129,13 +125,7 @@ int32 UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::Main(co
         }
         LevelResults.Add(LevelResult);
 
-        UE_LOG(LogMapUtils, Display,
-            TEXT("Level %s -> scanned=%d eligible=%d replaced=%d segs(s/c)=%d/%d saved=%s reason=%s"),
-            *LevelPath,
-            LevelResult.ActorsScanned, LevelResult.ActorsEligible, LevelResult.ActorsReplaced,
-            LevelResult.SegmentsStraight, LevelResult.SegmentsCurved,
-            LevelResult.bSaved ? TEXT("true") : TEXT("false"),
-            *LevelResult.FailReason);
+        UE_LOG(LogMapUtils, Display, TEXT("Level %s -> scanned=%d eligible=%d replaced=%d segs(s/c)=%d/%d saved=%s reason=%s"), *LevelPath, LevelResult.ActorsScanned, LevelResult.ActorsEligible, LevelResult.ActorsReplaced, LevelResult.SegmentsStraight, LevelResult.SegmentsCurved, LevelResult.bSaved ? TEXT("true") : TEXT("false"), *LevelResult.FailReason);
 
         CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
     }
@@ -160,12 +150,7 @@ int32 UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::Main(co
         }
     }
 
-    UE_LOG(LogMapUtils, Display,
-        TEXT("Complete. levels=%d red=%d scanned=%d eligible=%d replaced=%d segs(s/c)=%d/%d (dryRun=%s)"),
-        LevelResults.Num(), LevelsRed,
-        TotalScanned, TotalEligible, TotalReplaced,
-        TotalSegStraight, TotalSegCurved,
-        Options.bDryRun ? TEXT("true") : TEXT("false"));
+    UE_LOG(LogMapUtils, Display, TEXT("Complete. levels=%d red=%d scanned=%d eligible=%d replaced=%d segs(s/c)=%d/%d (dryRun=%s)"), LevelResults.Num(), LevelsRed, TotalScanned, TotalEligible, TotalReplaced, TotalSegStraight, TotalSegCurved, Options.bDryRun ? TEXT("true") : TEXT("false"));
 
     return LevelsRed > 0 ? 2 : 0;
 }
@@ -202,10 +187,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ParseOpt
     if (!FParse::Value(*Params, TEXT("-manifest="), OutOptions.ManifestPath, false))
     {
         const FString Stamp = FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
-        OutOptions.ManifestPath = FPaths::Combine(
-            FPaths::ProjectDir(),
-            TEXT("Intermediate"), TEXT("StraightSplineMeshToInstanceStaticMesh"), TEXT("Manifest"),
-            FString::Printf(TEXT("%s.json"), *Stamp));
+        OutOptions.ManifestPath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Intermediate"), TEXT("StraightSplineMeshToInstanceStaticMesh"), TEXT("Manifest"), FString::Printf(TEXT("%s.json"), *Stamp));
     }
     OutOptions.ManifestPath.TrimQuotesInline();
 
@@ -224,9 +206,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ParseOpt
     return true;
 }
 
-bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ResolveCandidateClasses(
-    const TArray<FString>& CandidateAssetPaths,
-    TArray<UClass*>& OutClasses) const
+bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ResolveCandidateClasses(const TArray<FString>& CandidateAssetPaths, TArray<UClass*>& OutClasses) const
 {
     OutClasses.Reset();
     for (const FString& AssetPath : CandidateAssetPaths)
@@ -242,11 +222,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ResolveC
     return OutClasses.Num() > 0;
 }
 
-bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ProcessLevel(
-    const FString& LevelPath,
-    const TArray<UClass*>& CandidateClasses,
-    const FOptions& Opts,
-    FLevelResult& OutResult) const
+bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ProcessLevel(const FString& LevelPath, const TArray<UClass*>& CandidateClasses, const FOptions& Opts, FLevelResult& OutResult) const
 {
     UPackage* Package = LoadPackage(nullptr, *LevelPath, LOAD_None);
     if (!Package)
@@ -335,8 +311,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ProcessL
         return true;
     }
 
-    const FString PackageFilename = FPackageName::LongPackageNameToFilename(
-        Package->GetName(), FPackageName::GetMapPackageExtension());
+    const FString PackageFilename = FPackageName::LongPackageNameToFilename(Package->GetName(), FPackageName::GetMapPackageExtension());
 
     FSavePackageArgs SaveArgs;
     SaveArgs.TopLevelFlags = RF_Standalone;
@@ -355,10 +330,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ProcessL
     return true;
 }
 
-bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::AnalyzeActor(
-    AActor* OldActor,
-    const FOptions& Opts,
-    FActorRecord& OutRecord) const
+bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::AnalyzeActor(AActor* OldActor, const FOptions& Opts, FActorRecord& OutRecord) const
 {
     TArray<USplineMeshComponent*> SplineComps;
     OldActor->GetComponents<USplineMeshComponent>(SplineComps);
@@ -441,10 +413,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::AnalyzeA
     return OutRecord.bAllStraight;
 }
 
-bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ReplaceActor(
-    AActor* OldActor,
-    UWorld* World,
-    FActorRecord& InOutRecord) const
+bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ReplaceActor(AActor* OldActor, UWorld* World, FActorRecord& InOutRecord) const
 {
     // Spawn at identity and FinishSpawning at the source actor's transform to avoid the
     // deferred-template double-rotation gotcha (same as in BlueprintToStaticMeshReplacer).
@@ -453,11 +422,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ReplaceA
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
     SpawnParams.bDeferConstruction = true;
 
-    AActor* NewActor = World->SpawnActor<AActor>(
-        AActor::StaticClass(),
-        FVector::ZeroVector,
-        FRotator::ZeroRotator,
-        SpawnParams);
+    AActor* NewActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
     if (!NewActor)
     {
         InOutRecord.FailReason = TEXT("SpawnActor<AActor> returned null");
@@ -526,10 +491,7 @@ bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::ReplaceA
     return true;
 }
 
-bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::WriteManifest(
-    const FString& ManifestPath,
-    const TArray<FLevelResult>& LevelResults,
-    const FOptions& Opts) const
+bool UMapUtilsStraightSplineMeshToInstanceStaticMeshReplacerCommandlet::WriteManifest(const FString& ManifestPath, const TArray<FLevelResult>& LevelResults, const FOptions& Opts) const
 {
     TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
     Root->SetStringField(TEXT("phase"), Opts.bDryRun ? TEXT("dryrun") : TEXT("execute"));

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 
 class ULevel;
+class UMaterialInterface;
 class UWorld;
 
 /**
@@ -14,8 +15,8 @@ class FMapUtilsActions
 public:
     static void AuditCurrentLevel();
     static void CreateBlockingVolumeFromSelection();
-    static void BakeSelectedToInstanceMesh();
-    static void BakeSelectedToMergedInstanceMesh();
+    static void BakeSelectedToInstanceMesh(UMaterialInterface* OverrideMaterial = nullptr);
+    static void BakeSelectedToMergedInstanceMesh(UMaterialInterface* OverrideMaterial = nullptr);
     static void ExportStaticMeshContext();
     static void ExportCollisionContext();
 

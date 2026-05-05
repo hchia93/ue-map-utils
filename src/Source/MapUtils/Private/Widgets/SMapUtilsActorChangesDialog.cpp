@@ -93,9 +93,7 @@ void SMapUtilsActorChangesDialog::Construct(const FArguments& InArgs)
         HeaderText = LOCTEXT("ActorInvalid", "Actor no longer valid");
     }
 
-    const FMapUtilsActorChangeSummary Summary = Actor
-        ? FMapUtilsDiffOps::GetActorChanges(Actor)
-        : FMapUtilsActorChangeSummary();
+    const FMapUtilsActorChangeSummary Summary = Actor ? FMapUtilsDiffOps::GetActorChanges(Actor) : FMapUtilsActorChangeSummary();
 
     TSharedRef<SVerticalBox> Content = SNew(SVerticalBox);
 

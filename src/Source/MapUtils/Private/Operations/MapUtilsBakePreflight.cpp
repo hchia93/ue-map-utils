@@ -39,8 +39,7 @@ namespace
     }
 }
 
-bool FMapUtilsBakePreflight::ConfirmBodyInstanceProfileUniformity(
-    const TArray<FMapUtilsBakeProfileSample>& Samples)
+bool FMapUtilsBakePreflight::ConfirmBodyInstanceProfileUniformity(const TArray<FMapUtilsBakeProfileSample>& Samples)
 {
     TMap<FProfileKey, TArray<FString>> Groups;
     for (const FMapUtilsBakeProfileSample& Sample : Samples)
@@ -78,11 +77,7 @@ bool FMapUtilsBakePreflight::ConfirmBodyInstanceProfileUniformity(
 
     FString Body;
     Body.Reserve(512);
-    Body += FString::Printf(TEXT("Selected sources have %d distinct collision profiles. ")
-                            TEXT("Baking will keep them in separate ISMC components inside the merged actor, ")
-                            TEXT("but custom BodyInstance overrides outside the profile (response channels, ")
-                            TEXT("mass scale, damping) will be lost.\n\n"),
-                            Ordered.Num());
+    Body += FString::Printf(TEXT("Selected sources have %d distinct collision profiles. Baking will keep them in separate ISMC components inside the merged actor, but custom BodyInstance overrides outside the profile (response channels, mass scale, damping) will be lost.\n\n"), Ordered.Num());
 
     constexpr int32 MaxNamesPerGroup = 8;
 
@@ -90,11 +85,7 @@ bool FMapUtilsBakePreflight::ConfirmBodyInstanceProfileUniformity(
     for (const FOrderedGroup& Group : Ordered)
     {
         ++GroupIdx;
-        Body += FString::Printf(TEXT("[%d] Profile=%s, Enabled=%s -> %d source(s):\n"),
-            GroupIdx,
-            *Group.Key.ProfileName.ToString(),
-            CollisionEnabledToString(Group.Key.CollisionEnabled),
-            Group.Names.Num());
+        Body += FString::Printf(TEXT("[%d] Profile=%s, Enabled=%s -> %d source(s):\n"), GroupIdx, *Group.Key.ProfileName.ToString(), CollisionEnabledToString(Group.Key.CollisionEnabled), Group.Names.Num());
 
         const int32 ShowCount = FMath::Min(Group.Names.Num(), MaxNamesPerGroup);
         for (int32 i = 0; i < ShowCount; ++i)
@@ -110,14 +101,9 @@ bool FMapUtilsBakePreflight::ConfirmBodyInstanceProfileUniformity(
 
     Body += TEXT("Continue baking?");
 
-    const EAppReturnType::Type Choice = FMessageDialog::Open(
-        EAppMsgType::OkCancel,
-        FText::FromString(Body),
-        LOCTEXT("ProfileMismatchTitle", "Collision Profile Mismatch"));
+    const EAppReturnType::Type Choice = FMessageDialog::Open(EAppMsgType::OkCancel, FText::FromString(Body), LOCTEXT("ProfileMismatchTitle", "Collision Profile Mismatch"));
 
-    UE_LOG(LogMapUtils, Log, TEXT("BakePreflight: %d profile group(s), user choice = %s"),
-        Groups.Num(),
-        Choice == EAppReturnType::Ok ? TEXT("Continue") : TEXT("Cancel"));
+    UE_LOG(LogMapUtils, Log, TEXT("BakePreflight: %d profile group(s), user choice = %s"), Groups.Num(), Choice == EAppReturnType::Ok ? TEXT("Continue") : TEXT("Cancel"));
 
     return Choice == EAppReturnType::Ok;
 }
