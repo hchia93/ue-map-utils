@@ -5,6 +5,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #if WITH_EDITORONLY_DATA
@@ -236,6 +237,37 @@ const FBodyInstance& AMeshChainBuilder::GetBodyInstanceForRole(EMeshChainSlotRol
     return BodyInstanceA;
 }
 
+UMaterialInterface* AMeshChainBuilder::GetOverrideMaterialForRole(EMeshChainSlotRole InRole) const
+{
+    switch (InRole)
+    {
+    case EMeshChainSlotRole::Main:       return OverrideMaterialA;
+    case EMeshChainSlotRole::Transition: return OverrideMaterialB;
+    case EMeshChainSlotRole::Corner:     return OverrideMaterialC;
+    }
+    return nullptr;
+}
+
+void AMeshChainBuilder::ApplyRoleOverrideMaterial(EMeshChainSlotRole InRole, UStaticMeshComponent* Comp) const
+{
+    if (!Comp)
+    {
+        return;
+    }
+    // Wipe any prior overrides first so unsetting the role's material reverts to mesh defaults.
+    Comp->EmptyOverrideMaterials();
+    UMaterialInterface* Override = GetOverrideMaterialForRole(InRole);
+    if (!Override)
+    {
+        return;
+    }
+    const int32 SlotCount = Comp->GetNumMaterials();
+    for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
+    {
+        Comp->SetMaterial(SlotIdx, Override);
+    }
+}
+
 void AMeshChainBuilder::ApplyRoleCollision(EMeshChainSlotRole InRole, UStaticMeshComponent* Comp) const
 {
     if (!Comp)
@@ -346,6 +378,7 @@ void AMeshChainBuilder::RebuildChain()
         {
             State.Component->SetRelativeTransform(Target);
         }
+        ApplyRoleOverrideMaterial(InRole, State.Component);
         State.LastBaselineRelative = SlotBaseline;
         NewSlots.Add(State);
         return UserRotDelta;
@@ -546,15 +579,19 @@ void AMeshChainBuilder::Editor_RegenerateChain()
 void AMeshChainBuilder::Editor_BakeToISM()
 {
     UWorld* World = GetWorld();
-    if (!World || m_Slots.Num() == 0)
+    ULevel* Level = GetLevel();
+    if (!World || !Level || m_Slots.Num() == 0)
     {
         return;
     }
 
     FScopedTransaction Tx(NSLOCTEXT("MeshChainBuilder", "Bake", "Mesh Chain: Bake to ISM"));
+    // Modify the level so Actors-array growth from SpawnActor enters the transaction snapshot;
+    // without this, undo cannot remove the freshly-spawned BakedActor from the level.
+    Level->Modify();
 
     FActorSpawnParameters SpawnParams;
-    SpawnParams.OverrideLevel = GetLevel();
+    SpawnParams.OverrideLevel = Level;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
     AActor* BakedActor = World->SpawnActor<AActor>(GetActorLocation(), GetActorRotation(), SpawnParams);
@@ -562,10 +599,11 @@ void AMeshChainBuilder::Editor_BakeToISM()
     {
         return;
     }
+    BakedActor->Modify();
     MapUtilsIsmBaked::TagAndLabel(BakedActor);
 
-    USceneComponent* BakedRoot = NewObject<USceneComponent>(BakedActor, TEXT("Root"));
-    // CreationMethod must be Instance before RegisterComponent (UE 5.7 ensures on this).
+    // RF_Transactional on every spawned component so post-bake gizmo moves and per-property edits are tracked.
+    USceneComponent* BakedRoot = NewObject<USceneComponent>(BakedActor, TEXT("Root"), RF_Transactional);
     BakedRoot->CreationMethod = EComponentCreationMethod::Instance;
     BakedRoot->SetMobility(EComponentMobility::Static);
     BakedActor->SetRootComponent(BakedRoot);
@@ -583,11 +621,13 @@ void AMeshChainBuilder::Editor_BakeToISM()
             return;
         }
 
-        UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(BakedActor, FName(CompName));
+        UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(BakedActor, FName(CompName), RF_Transactional);
+        ISM->Modify();
         ISM->CreationMethod = EComponentCreationMethod::Instance;
         ISM->SetStaticMesh(RoleMesh);
         ISM->SetMobility(EComponentMobility::Static);
         ApplyRoleCollision(InRole, static_cast<UStaticMeshComponent*>(ISM));
+        ApplyRoleOverrideMaterial(InRole, static_cast<UStaticMeshComponent*>(ISM));
         ISM->SetupAttachment(BakedRoot);
         ISM->RegisterComponent();
         BakedActor->AddInstanceComponent(ISM);
