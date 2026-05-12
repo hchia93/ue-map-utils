@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 
 class AActor;
-class UMaterialInterface;
 
 struct FMapUtilsBakeMergedInstanceResult
 {
@@ -32,9 +31,5 @@ struct FMapUtilsBakeMergedInstanceResult
 class FMapUtilsBakeToMergedInstanceMeshOps
 {
 public:
-    /**
-     * @param OverrideMaterial  When non-null, every ISMC slot on the merged actor is forced to this
-     *                          material. Source-side material override divergence is ignored for grouping.
-     */
-    static FMapUtilsBakeMergedInstanceResult BakeToMergedInstanceMesh(const TArray<AActor*>& Actors, UMaterialInterface* OverrideMaterial = nullptr);
+    static FMapUtilsBakeMergedInstanceResult BakeToMergedInstanceMesh(const TArray<AActor*>& Actors);
 };

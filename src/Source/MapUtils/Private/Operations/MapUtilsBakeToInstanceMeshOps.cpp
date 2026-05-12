@@ -12,14 +12,13 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
-#include "Materials/MaterialInterface.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MapUtilsBakeToInstanceMeshOps"
 
 namespace
 {
-    AActor* SpawnIsmActorForSource(UWorld* World, ULevel* Level, AStaticMeshActor* Source, int32 LabelIndex, UMaterialInterface* OverrideMaterial)
+    AActor* SpawnIsmActorForSource(UWorld* World, ULevel* Level, AStaticMeshActor* Source, int32 LabelIndex)
     {
         UStaticMeshComponent* Src = Source->GetStaticMeshComponent();
         if (!Src || !Src->GetStaticMesh())
@@ -48,16 +47,6 @@ namespace
         // Full settings migration before root assignment so register picks up the right state.
         MapUtilsComponentSettings::Copy(Src, Ismc);
 
-        // ToolSetup override: stamp the chosen material onto every slot, after Copy so it wins.
-        if (OverrideMaterial)
-        {
-            const int32 SlotCount = Ismc->GetNumMaterials();
-            for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
-            {
-                Ismc->SetMaterial(SlotIdx, OverrideMaterial);
-            }
-        }
-
         // Either an explicit source flag or a mirrored actor (det<0) inverts winding; OR keeps both.
         const bool bSrcReverse = Src->bReverseCulling;
         const bool bDeterminantReverse = ActorXf.ToMatrixWithScale().Determinant() < 0.0;
@@ -82,7 +71,7 @@ namespace
     }
 }
 
-FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors, UMaterialInterface* OverrideMaterial)
+FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors)
 {
     FMapUtilsBakeInstanceResult Result;
 
@@ -143,7 +132,7 @@ FMapUtilsBakeInstanceResult FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(c
 
         for (AStaticMeshActor* Source : Valid)
         {
-            AActor* New = SpawnIsmActorForSource(World, Level, Source, NextLabelIdx, OverrideMaterial);
+            AActor* New = SpawnIsmActorForSource(World, Level, Source, NextLabelIdx);
             if (!New)
             {
                 Result.FailedSourceNames.Add(Source->GetName());

@@ -204,8 +204,11 @@ UStaticMeshComponent* AMeshChainBuilder::AcquireSlotComponent(EMeshChainSlotRole
             UStaticMeshComponent* AsMesh = Cast<UStaticMeshComponent>(Existing);
             if (AsMesh)
             {
+                // Backfill RF_Transactional for slots saved before the flag was passed at NewObject time.
+                AsMesh->SetFlags(RF_Transactional);
                 if (AsMesh->GetStaticMesh() != Mesh)
                 {
+                    AsMesh->Modify();
                     AsMesh->SetStaticMesh(Mesh);
                 }
                 return AsMesh;
@@ -213,7 +216,8 @@ UStaticMeshComponent* AMeshChainBuilder::AcquireSlotComponent(EMeshChainSlotRole
         }
     }
 
-    UStaticMeshComponent* NewComp = NewObject<UStaticMeshComponent>(this, Name);
+    // RF_Transactional is required for gizmo edits to enter the undo buffer; without it Modify() silently no-ops.
+    UStaticMeshComponent* NewComp = NewObject<UStaticMeshComponent>(this, Name, RF_Transactional);
     // CreationMethod must be set before RegisterComponent so the editor classifies it as an instance-owned component.
     NewComp->CreationMethod = EComponentCreationMethod::Instance;
     NewComp->SetStaticMesh(Mesh);
@@ -254,14 +258,36 @@ void AMeshChainBuilder::ApplyRoleOverrideMaterial(EMeshChainSlotRole InRole, USt
     {
         return;
     }
+    UMaterialInterface* Override = GetOverrideMaterialForRole(InRole);
+    const int32 SlotCount = Comp->GetNumMaterials();
+    bool bChanged = false;
+    if (Comp->OverrideMaterials.Num() > 0)
+    {
+        bChanged = true;
+    }
+    if (!bChanged && Override)
+    {
+        for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
+        {
+            if (Comp->GetMaterial(SlotIdx) != Override)
+            {
+                bChanged = true;
+                break;
+            }
+        }
+    }
+    if (!bChanged)
+    {
+        return;
+    }
+    // Modify so undo of a chain rebuild restores the prior material set.
+    Comp->Modify();
     // Wipe any prior overrides first so unsetting the role's material reverts to mesh defaults.
     Comp->EmptyOverrideMaterials();
-    UMaterialInterface* Override = GetOverrideMaterialForRole(InRole);
     if (!Override)
     {
         return;
     }
-    const int32 SlotCount = Comp->GetNumMaterials();
     for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
     {
         Comp->SetMaterial(SlotIdx, Override);
@@ -296,6 +322,7 @@ void AMeshChainBuilder::DestroyAllSlots()
     {
         if (Slot.Component)
         {
+            Slot.Component->Modify();
             Slot.Component->DestroyComponent();
         }
     }
@@ -361,6 +388,7 @@ void AMeshChainBuilder::RebuildChain()
             Reused[ExistingIndex] = true;
             if (State.Component->GetStaticMesh() != Mesh)
             {
+                State.Component->Modify();
                 State.Component->SetStaticMesh(Mesh);
             }
         }
@@ -376,6 +404,8 @@ void AMeshChainBuilder::RebuildChain()
         const FTransform Target(FinalRot, FinalLoc, Scale);
         if (!State.Component->GetRelativeTransform().Equals(Target, KINDA_SMALL_NUMBER))
         {
+            // Modify so undo of a chain rebuild restores the slot's prior transform.
+            State.Component->Modify();
             State.Component->SetRelativeTransform(Target);
         }
         ApplyRoleOverrideMaterial(InRole, State.Component);
@@ -481,11 +511,12 @@ void AMeshChainBuilder::RebuildChain()
         }
     }
 
-    // Destroy any prior slots we did not reuse.
+    // Destroy non-reused slots. Modify so undo can revive them via the actor's instance-component revert.
     for (int32 i = 0; i < m_Slots.Num(); ++i)
     {
         if (!Reused[i] && m_Slots[i].Component)
         {
+            m_Slots[i].Component->Modify();
             m_Slots[i].Component->DestroyComponent();
         }
     }
@@ -576,6 +607,100 @@ void AMeshChainBuilder::Editor_RegenerateChain()
     RebuildChain();
 }
 
+FTransform AMeshChainBuilder::ComputeBakePivotXf() const
+{
+    // Default: builder's own world transform.
+    if (BakedPivotLocation == EBakedPivotLocation::Default)
+    {
+        return GetActorTransform();
+    }
+
+    // Centroid: 3D AABB center over every slot's world bounds.
+    if (BakedPivotLocation == EBakedPivotLocation::BoundCenter)
+    {
+        FBox WorldBounds(ForceInit);
+        for (const FMeshChainSlotState& Slot : m_Slots)
+        {
+            if (!Slot.Component)
+            {
+                continue;
+            }
+            UStaticMesh* RoleMesh = GetMeshForRole(Slot.Role);
+            if (!RoleMesh)
+            {
+                continue;
+            }
+            WorldBounds += RoleMesh->GetBoundingBox().TransformBy(Slot.Component->GetComponentTransform());
+        }
+        if (!WorldBounds.IsValid)
+        {
+            return GetActorTransform();
+        }
+        // Keep the builder's rotation on the pivot so the baked actor still has a meaningful
+        // Local gizmo basis; only the location switches to the AABB center.
+        return FTransform(GetActorTransform().GetRotation(), WorldBounds.GetCenter());
+    }
+
+    // TL / TR / BL / BR: corners of the chain head's connection face (YZ plane of the first Main slot).
+    // T/B = mesh top/bottom Z, L/R = chain-left/right perpendicular to chain forward (viewed from outside).
+    for (const FMeshChainSlotState& Slot : m_Slots)
+    {
+        if (Slot.Role != EMeshChainSlotRole::Main || Slot.RoleIndex != 0 || !Slot.Component)
+        {
+            continue;
+        }
+        UStaticMesh* RoleMesh = GetMeshForRole(EMeshChainSlotRole::Main);
+        if (!RoleMesh)
+        {
+            continue;
+        }
+
+        const FBox B = RoleMesh->GetBoundingBox();
+        const float TopZ = B.Max.Z;
+        const float BotZ = B.Min.Z;
+
+        // Per-orientation: which axis carries the back-face plane and where chain-left / chain-right
+        // sit in mesh-local. Chain-right axis in mesh-local (after AxisAlignmentQuat):
+        //   X -> +Y_mesh, InverseX -> -Y_mesh, Y -> -X_mesh, InverseY -> +X_mesh.
+        int32 BackAxisIdx = 0;
+        float BackCoord = 0.f;
+        float LeftLat = 0.f;
+        float RightLat = 0.f;
+        switch (OrientationA)
+        {
+        case EMeshOrientation::X:
+            BackAxisIdx = 0; BackCoord = B.Min.X; LeftLat = B.Min.Y; RightLat = B.Max.Y; break;
+        case EMeshOrientation::InverseX:
+            BackAxisIdx = 0; BackCoord = B.Max.X; LeftLat = B.Max.Y; RightLat = B.Min.Y; break;
+        case EMeshOrientation::Y:
+            BackAxisIdx = 1; BackCoord = B.Min.Y; LeftLat = B.Max.X; RightLat = B.Min.X; break;
+        case EMeshOrientation::InverseY:
+            BackAxisIdx = 1; BackCoord = B.Max.Y; LeftLat = B.Min.X; RightLat = B.Max.X; break;
+        default:
+            BackAxisIdx = 0; BackCoord = B.Min.X; LeftLat = B.Min.Y; RightLat = B.Max.Y; break;
+        }
+
+        float LatCoord = 0.f;
+        float ZCoord = 0.f;
+        switch (BakedPivotLocation)
+        {
+        case EBakedPivotLocation::TopLeft:     ZCoord = TopZ; LatCoord = LeftLat;  break;
+        case EBakedPivotLocation::TopRight:    ZCoord = TopZ; LatCoord = RightLat; break;
+        case EBakedPivotLocation::BottomLeft:  ZCoord = BotZ; LatCoord = LeftLat;  break;
+        case EBakedPivotLocation::BottomRight: ZCoord = BotZ; LatCoord = RightLat; break;
+        default:                               ZCoord = BotZ; LatCoord = (LeftLat + RightLat) * 0.5f; break;
+        }
+
+        const FVector LocalPivot = (BackAxisIdx == 0)
+            ? FVector(BackCoord, LatCoord, ZCoord)
+            : FVector(LatCoord, BackCoord, ZCoord);
+
+        const FTransform SlotXf = Slot.Component->GetComponentTransform();
+        return FTransform(GetActorTransform().GetRotation(), SlotXf.TransformPosition(LocalPivot));
+    }
+    return GetActorTransform();
+}
+
 void AMeshChainBuilder::Editor_BakeToISM()
 {
     UWorld* World = GetWorld();
@@ -590,28 +715,20 @@ void AMeshChainBuilder::Editor_BakeToISM()
     // without this, undo cannot remove the freshly-spawned BakedActor from the level.
     Level->Modify();
 
+    const FTransform PivotXf = ComputeBakePivotXf();
+
     FActorSpawnParameters SpawnParams;
     SpawnParams.OverrideLevel = Level;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    AActor* BakedActor = World->SpawnActor<AActor>(GetActorLocation(), GetActorRotation(), SpawnParams);
+    AActor* BakedActor = World->SpawnActor<AActor>(AActor::StaticClass(), PivotXf, SpawnParams);
     if (!BakedActor)
     {
         return;
     }
     BakedActor->Modify();
-    MapUtilsIsmBaked::TagAndLabel(BakedActor);
 
-    // RF_Transactional on every spawned component so post-bake gizmo moves and per-property edits are tracked.
-    USceneComponent* BakedRoot = NewObject<USceneComponent>(BakedActor, TEXT("Root"), RF_Transactional);
-    BakedRoot->CreationMethod = EComponentCreationMethod::Instance;
-    BakedRoot->SetMobility(EComponentMobility::Static);
-    BakedActor->SetRootComponent(BakedRoot);
-    BakedRoot->RegisterComponent();
-    BakedActor->AddInstanceComponent(BakedRoot);
-    // SpawnActor<AActor> drops the spawn location/rotation when no root exists at spawn time;
-    // we must anchor the freshly-set root to the source actor's transform so the baked handle sits with the meshes.
-    BakedActor->SetActorLocationAndRotation(GetActorLocation(), GetActorRotation());
+    UInstancedStaticMeshComponent* RootISM = nullptr;
 
     auto BakeRole = [&](EMeshChainSlotRole InRole, const TCHAR* CompName)
     {
@@ -621,16 +738,42 @@ void AMeshChainBuilder::Editor_BakeToISM()
             return;
         }
 
+        // RF_Transactional so post-bake gizmo moves and per-property edits enter the undo buffer.
         UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(BakedActor, FName(CompName), RF_Transactional);
         ISM->Modify();
-        ISM->CreationMethod = EComponentCreationMethod::Instance;
+        ISM->bHasPerInstanceHitProxies = true;
         ISM->SetStaticMesh(RoleMesh);
         ISM->SetMobility(EComponentMobility::Static);
         ApplyRoleCollision(InRole, static_cast<UStaticMeshComponent*>(ISM));
         ApplyRoleOverrideMaterial(InRole, static_cast<UStaticMeshComponent*>(ISM));
-        ISM->SetupAttachment(BakedRoot);
+
+        if (RootISM == nullptr)
+        {
+            BakedActor->SetRootComponent(ISM);
+            RootISM = ISM;
+        }
+        else
+        {
+            ISM->AttachToComponent(RootISM, FAttachmentTransformRules::KeepRelativeTransform);
+        }
+
+        // SetRootComponent / AttachToComponent already added the component to OwnedComponents,
+        // but with the default CreationMethod (Native), so it never reaches InstanceComponents.
+        // Without that, undo of post-bake gizmo moves silently no-ops because the editor cannot
+        // see the component as a save-tracked instance. Re-add with CreationMethod=Instance so
+        // AddOwnedComponent funnels it into InstanceComponents and the transaction system
+        // serializes its transform on snapshot.
+        BakedActor->RemoveOwnedComponent(ISM);
+        ISM->CreationMethod = EComponentCreationMethod::Instance;
+        BakedActor->AddOwnedComponent(ISM);
         ISM->RegisterComponent();
-        BakedActor->AddInstanceComponent(ISM);
+
+        // SetRootComponent on a fresh ISM (identity transform) snaps the actor to (0,0,0);
+        // restore the chain builder's transform so instance-relative transforms resolve correctly.
+        if (RootISM == ISM)
+        {
+            BakedActor->SetActorTransform(PivotXf);
+        }
 
         for (const FMeshChainSlotState& Slot : m_Slots)
         {
@@ -638,12 +781,22 @@ void AMeshChainBuilder::Editor_BakeToISM()
             {
                 continue;
             }
-            ISM->AddInstance(Slot.Component->GetComponentTransform(), /*bWorldSpace*/ true);
+            const FTransform InstanceLocalXf = Slot.Component->GetComponentTransform().GetRelativeTransform(PivotXf);
+            ISM->AddInstance(InstanceLocalXf, /*bWorldSpace*/ false);
         }
     };
 
     BakeRole(EMeshChainSlotRole::Main,       TEXT("ISM_Main"));
     BakeRole(EMeshChainSlotRole::Transition, TEXT("ISM_Transition"));
     BakeRole(EMeshChainSlotRole::Corner,     TEXT("ISM_Corner"));
+
+    if (!RootISM)
+    {
+        World->EditorDestroyActor(BakedActor, true);
+        return;
+    }
+
+    MapUtilsIsmBaked::TagAndLabel(BakedActor);
+    BakedActor->PostEditChange();
 }
 #endif // WITH_EDITOR

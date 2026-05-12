@@ -13,7 +13,6 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
-#include "Materials/MaterialInterface.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MapUtilsBakeToMergedInstanceMeshOps"
@@ -90,10 +89,9 @@ namespace
     }
 }
 
-FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(const TArray<AActor*>& Actors, UMaterialInterface* OverrideMaterial)
+FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(const TArray<AActor*>& Actors)
 {
     FMapUtilsBakeMergedInstanceResult Result;
-    const bool bHasOverrideMaterial = (OverrideMaterial != nullptr);
 
     TArray<AActor*> AcceptedSources;
     TArray<FInstanceEntry> Entries;
@@ -196,7 +194,7 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
         const int32 Idx = Groups.IndexOfByPredicate([&](const FGroup& G)
         {
             return G.bReverseCulling == Entry.bReverseCulling
-                && MapUtilsComponentSettings::AreGroupableSettingsEqual(G.TemplateSmc, Entry.SourceSmc, bHasOverrideMaterial);
+                && MapUtilsComponentSettings::AreGroupableSettingsEqual(G.TemplateSmc, Entry.SourceSmc);
         });
         if (Idx == INDEX_NONE)
         {
@@ -243,16 +241,6 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
 
             // Full settings migration from the representative source component.
             MapUtilsComponentSettings::Copy(Group.TemplateSmc, Ismc);
-
-            // ToolSetup override: stamp the chosen material onto every slot, after Copy so it wins.
-            if (bHasOverrideMaterial)
-            {
-                const int32 SlotCount = Ismc->GetNumMaterials();
-                for (int32 SlotIdx = 0; SlotIdx < SlotCount; ++SlotIdx)
-                {
-                    Ismc->SetMaterial(SlotIdx, OverrideMaterial);
-                }
-            }
 
             Ismc->SetReverseCulling(Group.bReverseCulling);
 
@@ -309,11 +297,10 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
 
     Result.bSuccess = true;
 
-    const FString OverrideMatName = bHasOverrideMaterial ? OverrideMaterial->GetName() : FString(TEXT("<none>"));
-    UE_LOG(LogMapUtils, Log, TEXT("BakeToMergedInstanceMesh: %d source(s) -> 1 actor with %d instances across %d ISMC group(s) (skipped %d, overrideMat=%s)"), Result.SourceActorCount, Result.InstanceCount, Result.GroupCount, Result.SkippedActorCount, *OverrideMatName);
+    UE_LOG(LogMapUtils, Log, TEXT("BakeToMergedInstanceMesh: %d source(s) -> 1 actor with %d instances across %d ISMC group(s) (skipped %d)"), Result.SourceActorCount, Result.InstanceCount, Result.GroupCount, Result.SkippedActorCount);
 
     // Per-group diagnostic. When the user expects 1 group but sees N, this surfaces the splitting reason
-    // (mesh / collision profile / reverse culling). Material divergence is omitted when overridden.
+    // (mesh / collision profile / reverse culling).
     for (int32 GIdx = 0; GIdx < Groups.Num(); ++GIdx)
     {
         const FGroup& G = Groups[GIdx];

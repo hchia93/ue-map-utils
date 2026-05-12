@@ -276,50 +276,94 @@ void AMeshGridBuilder::Editor_BakeToISM()
         return;
     }
 
+    ULevel* Level = GetLevel();
+    if (!Level)
+    {
+        return;
+    }
+
     FScopedTransaction Tx(NSLOCTEXT("MeshGridBuilder", "Bake", "Mesh Grid: Bake to ISM"));
+    // Level->Modify so the actor list snapshot lets undo remove the spawned actor.
+    Level->Modify();
 
     FActorSpawnParameters SpawnParams;
-    SpawnParams.OverrideLevel = GetLevel();
+    SpawnParams.OverrideLevel = Level;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    const FVector PivotLocation = WorldBounds.GetCenter();
-    AActor* BakedActor = World->SpawnActor<AActor>(PivotLocation, FRotator::ZeroRotator, SpawnParams);
+    // Rotation always rides on the builder so the baked actor distinguishes Local / World gizmo space.
+    // Location is mode-dependent: Default = builder origin, corners anchor on the YZ plane nearest the
+    // builder's own pivot (X), BoundCenter = full 3D AABB center.
+    const FTransform BuilderXf = GetActorTransform();
+    const float PlaneYZ = MeshBuilderPivot::NearestPlaneYZ(WorldBounds, BuilderXf.GetLocation().X);
+    const FVector AnchorPivotLoc = MeshBuilderPivot::ResolveBoundsAnchor(WorldBounds, BakedPivotLocation, PlaneYZ);
+    const bool bUseBuilderOrigin = (BakedPivotLocation == EBakedPivotLocation::Default);
+    const FVector PivotLoc = bUseBuilderOrigin ? BuilderXf.GetLocation() : AnchorPivotLoc;
+    const FTransform PivotXf(BuilderXf.GetRotation(), PivotLoc);
+    AActor* BakedActor = World->SpawnActor<AActor>(AActor::StaticClass(), PivotXf, SpawnParams);
     if (!BakedActor)
     {
         return;
     }
-    MapUtilsIsmBaked::TagAndLabel(BakedActor);
+    BakedActor->Modify();
 
-    USceneComponent* BakedRoot = NewObject<USceneComponent>(BakedActor, TEXT("Root"));
-    BakedRoot->CreationMethod = EComponentCreationMethod::Instance;
-    BakedRoot->SetMobility(EComponentMobility::Static);
-    BakedActor->SetRootComponent(BakedRoot);
-    BakedRoot->RegisterComponent();
-    BakedActor->AddInstanceComponent(BakedRoot);
-    // SpawnActor<AActor> drops spawn location when no root exists yet; re-anchor at the centroid pivot.
-    BakedActor->SetActorLocation(PivotLocation);
+    UInstancedStaticMeshComponent* RootISM = nullptr;
 
     int32 InstanceCount = 0;
     for (const TPair<UMaterialInterface*, TArray<UStaticMeshComponent*>>& Pair : Groups)
     {
-        UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(BakedActor);
-        ISM->CreationMethod = EComponentCreationMethod::Instance;
+        // RF_Transactional so post-bake gizmo moves and per-property edits enter the undo buffer.
+        UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(BakedActor, NAME_None, RF_Transactional);
+        ISM->Modify();
+        ISM->bHasPerInstanceHitProxies = true;
         ISM->SetStaticMesh(TileMesh);
         ISM->SetMobility(EComponentMobility::Static);
         if (Pair.Key)
         {
             ISM->SetMaterial(0, Pair.Key);
         }
-        ISM->SetupAttachment(BakedRoot);
+
+        if (RootISM == nullptr)
+        {
+            BakedActor->SetRootComponent(ISM);
+            RootISM = ISM;
+        }
+        else
+        {
+            ISM->AttachToComponent(RootISM, FAttachmentTransformRules::KeepRelativeTransform);
+        }
+
+        // Ownership dance: SetRootComponent / AttachToComponent already added with default CreationMethod;
+        // re-add with Instance so AddOwnedComponent funnels into InstanceComponents and the transaction system
+        // serializes its transform on snapshot.
+        BakedActor->RemoveOwnedComponent(ISM);
+        ISM->CreationMethod = EComponentCreationMethod::Instance;
+        BakedActor->AddOwnedComponent(ISM);
         ISM->RegisterComponent();
-        BakedActor->AddInstanceComponent(ISM);
+
+        // SetRootComponent on a fresh ISM (identity transform) snaps the actor to (0,0,0);
+        // restore the full pivot transform so actor rotation is preserved and instance-relative
+        // transforms resolve correctly against the rotated frame.
+        if (RootISM == ISM)
+        {
+            BakedActor->SetActorTransform(PivotXf);
+        }
 
         for (UStaticMeshComponent* CellSmc : Pair.Value)
         {
-            ISM->AddInstance(CellSmc->GetComponentTransform(), /*bWorldSpace*/ true);
+            const FTransform InstanceLocalXf = CellSmc->GetComponentTransform().GetRelativeTransform(PivotXf);
+            ISM->AddInstance(InstanceLocalXf, /*bWorldSpace*/ false);
             ++InstanceCount;
         }
     }
+
+    if (!RootISM)
+    {
+        World->EditorDestroyActor(BakedActor, true);
+        return;
+    }
+
+    MapUtilsIsmBaked::TagAndLabel(BakedActor);
+    BakedActor->PostEditChange();
 
     UE_LOG(LogMapUtils, Log, TEXT("MeshGridBuilder::BakeToISM: %d instance(s) across %d ISMC group(s)"), InstanceCount, Groups.Num());
 }

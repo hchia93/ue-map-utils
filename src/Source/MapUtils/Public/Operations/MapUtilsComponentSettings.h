@@ -20,9 +20,6 @@ namespace MapUtilsComponentSettings
      * Returns true when A and B agree on every field that decides whether two source
      * components may share one ISMC. Acts as a secondary group key beyond (mesh, reverseCulling);
      * non-groupable settings are inherited from the first representative.
-     *
-     * Pass bIgnoreMaterials=true when the caller will overwrite ISMC materials post-grouping
-     * (e.g. ToolSetup OverrideMaterial), so source-side material divergence stops splitting groups.
      */
-    bool AreGroupableSettingsEqual(UStaticMeshComponent* A, UStaticMeshComponent* B, bool bIgnoreMaterials = false);
+    bool AreGroupableSettingsEqual(UStaticMeshComponent* A, UStaticMeshComponent* B);
 }

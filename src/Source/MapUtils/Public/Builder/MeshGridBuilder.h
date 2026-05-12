@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
+#include "Builder/MeshBuilderPivot.h"
+
 #include "MeshGridBuilder.generated.h"
 
 class UBillboardComponent;
@@ -85,6 +87,12 @@ protected:
     /** Rows x Columns. Row index advances along local X, column index along local Y. */
     UPROPERTY(EditAnywhere, Category = "Grid", meta = (ClampMin = "1"))
     FIntPoint GridSize = FIntPoint(4, 4);
+
+    /** Pivot location for the baked actor. Default = builder's own actor transform.
+     *  Corners anchor on the YZ face of the cell AABB nearest the builder's own pivot (X);
+     *  Centroid uses the full 3D AABB center. */
+    UPROPERTY(EditAnywhere, Category = "Tool Action")
+    EBakedPivotLocation BakedPivotLocation = EBakedPivotLocation::Default;
 
 private:
     UPROPERTY(VisibleAnywhere, Category = "Components")

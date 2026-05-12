@@ -4,10 +4,13 @@
 #include "GameFramework/Actor.h"
 #include "PhysicsEngine/BodyInstance.h"
 
+#include "Builder/MeshBuilderPivot.h"
+
 #include "MeshChainBuilder.generated.h"
 
 class UBillboardComponent;
 class UInstancedStaticMeshComponent;
+class UMaterialInterface;
 class UStaticMesh;
 class UStaticMeshComponent;
 
@@ -125,6 +128,10 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Main")
     FBodyInstance BodyInstanceA;
 
+    // When set, every material slot on Main components is forced to this material (edit-time preview + bake).
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Main")
+    TObjectPtr<UMaterialInterface> OverrideMaterialA;
+
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Transition")
     TObjectPtr<UStaticMesh> MeshB;
 
@@ -136,6 +143,9 @@ protected:
 
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Transition")
     FBodyInstance BodyInstanceB;
+
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Transition")
+    TObjectPtr<UMaterialInterface> OverrideMaterialB;
 
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Corner")
     TObjectPtr<UStaticMesh> MeshC;
@@ -152,10 +162,19 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Corner")
     FBodyInstance BodyInstanceC;
 
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Corner")
+    TObjectPtr<UMaterialInterface> OverrideMaterialC;
+
     // Authored discrete sequence of steps. Add{Forward|Left|Right}Node always ends in a Forward,
     // optionally preceded by a Turn (for left/right). The chain walk consumes Steps in order.
     UPROPERTY()
     TArray<FMeshChainStep> Steps;
+
+    // Pivot location for the baked actor. Default = builder's own actor transform.
+    // Corners anchor on the chain head's connection face (YZ plane of the first Main slot);
+    // Centroid is the 3D AABB center for scattered debris.
+    UPROPERTY(EditAnywhere, Category = "Tool Action")
+    EBakedPivotLocation BakedPivotLocation = EBakedPivotLocation::Default;
 
 private:
 
@@ -186,4 +205,10 @@ private:
     void DestroyAllSlots();
     const FBodyInstance& GetBodyInstanceForRole(EMeshChainSlotRole InRole) const;
     void ApplyRoleCollision(EMeshChainSlotRole InRole, UStaticMeshComponent* Comp) const;
+    UMaterialInterface* GetOverrideMaterialForRole(EMeshChainSlotRole InRole) const;
+    void ApplyRoleOverrideMaterial(EMeshChainSlotRole InRole, UStaticMeshComponent* Comp) const;
+
+#if WITH_EDITOR
+    FTransform ComputeBakePivotXf() const;
+#endif
 };

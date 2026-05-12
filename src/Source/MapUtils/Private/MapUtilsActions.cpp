@@ -5,6 +5,7 @@
 #include "Operations/MapUtilsBakeToInstanceMeshOps.h"
 #include "Operations/MapUtilsBakeToMergedInstanceMeshOps.h"
 #include "Operations/MapUtilsBlockingVolumeOps.h"
+#include "Operations/MapUtilsFixBakedIsmRotationOps.h"
 
 #include "Editor.h"
 #include "Engine/Level.h"
@@ -149,7 +150,7 @@ void FMapUtilsActions::CreateBlockingVolumeFromSelection()
     }
 }
 
-void FMapUtilsActions::BakeSelectedToInstanceMesh(UMaterialInterface* OverrideMaterial)
+void FMapUtilsActions::BakeSelectedToInstanceMesh()
 {
     const TArray<AStaticMeshActor*> Actors = GatherSelectedSMA();
 
@@ -163,7 +164,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh(UMaterialInterface* OverrideMa
         return;
     }
 
-    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors, OverrideMaterial);
+    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
 
     if (Result.bSuccess)
     {
@@ -189,7 +190,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh(UMaterialInterface* OverrideMa
     }
 }
 
-void FMapUtilsActions::BakeSelectedToMergedInstanceMesh(UMaterialInterface* OverrideMaterial)
+void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
 {
     const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
@@ -203,7 +204,7 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh(UMaterialInterface* Over
         return;
     }
 
-    const FMapUtilsBakeMergedInstanceResult Result = FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors, OverrideMaterial);
+    const FMapUtilsBakeMergedInstanceResult Result = FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
 
     if (Result.bUserCancelled)
     {
@@ -220,6 +221,48 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh(UMaterialInterface* Over
         const FText Message = Result.ErrorText.IsEmpty() ? LOCTEXT("BakeMergedInstanceFail", "Bake to Merged Instance Mesh failed. See Output Log.") : Result.ErrorText;
         Log.Error(Message);
         Log.Open(EMessageSeverity::Error, true);
+    }
+}
+
+void FMapUtilsActions::FixBakedIsmRotation()
+{
+    const TArray<AActor*> Actors = GatherSelectedActorsAny();
+
+    FMessageLog Log(MapUtilsLogName);
+    Log.NewPage(LOCTEXT("FixIsmRotPage", "Fix Baked ISM Rotation"));
+
+    if (Actors.IsEmpty())
+    {
+        Log.Warning(LOCTEXT("FixIsmRotNoSelection", "No actor selected. Select baked ISM actor(s) in the Outliner / viewport first."));
+        Log.Open(EMessageSeverity::Warning, true);
+        return;
+    }
+
+    const FMapUtilsFixBakedIsmRotationResult Result = FMapUtilsFixBakedIsmRotationOps::Fix(Actors);
+
+    if (Result.FixedActorCount > 0)
+    {
+        const FText Message = FText::Format(LOCTEXT("FixIsmRotOK", "Fixed {0} actor(s), skipped {1} of {2} selected. Ctrl+Z to undo."), Result.FixedActorCount, Result.SkippedActorCount, Result.SelectedActorCount);
+        Log.Info(Message);
+    }
+    else if (!Result.ErrorText.IsEmpty())
+    {
+        Log.Error(Result.ErrorText);
+    }
+    else
+    {
+        Log.Info(LOCTEXT("FixIsmRotNothingToDo", "Nothing to fix. All selected actors were skipped (see reasons below)."));
+    }
+
+    for (const FString& Reason : Result.SkipReasons)
+    {
+        Log.Warning(FText::FromString(Reason));
+    }
+
+    // Surface log only if there were unfixed selections worth investigating.
+    if (Result.SkippedActorCount > 0)
+    {
+        Log.Open(EMessageSeverity::Warning, true);
     }
 }
 

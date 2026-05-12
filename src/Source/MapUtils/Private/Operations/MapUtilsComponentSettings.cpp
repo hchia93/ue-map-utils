@@ -91,7 +91,7 @@ namespace MapUtilsComponentSettings
         Dst->TranslucencySortPriority = Src->TranslucencySortPriority;
     }
 
-    bool AreGroupableSettingsEqual(UStaticMeshComponent* A, UStaticMeshComponent* B, bool bIgnoreMaterials)
+    bool AreGroupableSettingsEqual(UStaticMeshComponent* A, UStaticMeshComponent* B)
     {
         if (!A || !B)
         {
@@ -104,16 +104,13 @@ namespace MapUtilsComponentSettings
             return false;
         }
 
-        if (!bIgnoreMaterials)
+        TArray<UMaterialInterface*> MatA;
+        TArray<UMaterialInterface*> MatB;
+        A->GetUsedMaterials(MatA);
+        B->GetUsedMaterials(MatB);
+        if (!MaterialsEqual(MatA, MatB))
         {
-            TArray<UMaterialInterface*> MatA;
-            TArray<UMaterialInterface*> MatB;
-            A->GetUsedMaterials(MatA);
-            B->GetUsedMaterials(MatB);
-            if (!MaterialsEqual(MatA, MatB))
-            {
-                return false;
-            }
+            return false;
         }
 
         // Collision: profile, enable state, object type, per-channel response.

@@ -3,9 +3,6 @@
 #include "MapUtilsActions.h"
 #include "Widgets/SMapUtilsDiffDialog.h"
 
-#include "AssetRegistry/AssetData.h"
-#include "Materials/MaterialInterface.h"
-#include "PropertyCustomizationHelpers.h"
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
@@ -40,48 +37,6 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
             [
                 SNew(SVerticalBox)
 
-                // -- Tool Setup --
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(SectionHeaderPadding)
-                [
-                    MakeHeader(LOCTEXT("ToolSetupHeader", "Tool Setup"))
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(ButtonPadding)
-                [
-                    SNew(SHorizontalBox)
-                    + SHorizontalBox::Slot()
-                    .AutoWidth()
-                    .VAlign(VAlign_Center)
-                    .Padding(0, 0, 8, 0)
-                    [
-                        SNew(STextBlock)
-                        .Text(LOCTEXT("OverrideMaterialLabel", "Override Material"))
-                        .ToolTipText(LOCTEXT("OverrideMaterialTooltip", "Optional. When set, every ISMC slot on baked actors is forced to this material. Source-side material override divergence is also ignored when grouping in the Merged bake, so visually identical walls collapse into one ISMC."))
-                    ]
-                    + SHorizontalBox::Slot()
-                    .FillWidth(1.0f)
-                    [
-                        SNew(SObjectPropertyEntryBox)
-                        .AllowedClass(UMaterialInterface::StaticClass())
-                        .ObjectPath(this, &SMapUtilsPanel::GetOverrideMaterialPath)
-                        .OnObjectChanged(this, &SMapUtilsPanel::OnOverrideMaterialChanged)
-                        .DisplayBrowse(true)
-                        .DisplayUseSelected(true)
-                        .DisplayThumbnail(false)
-                    ]
-                ]
-
-                + SVerticalBox::Slot()
-                .AutoHeight()
-                .Padding(SeparatorPadding)
-                [
-                    SNew(SSeparator)
-                ]
-
                 // -- Level --
                 + SVerticalBox::Slot()
                 .AutoHeight()
@@ -110,6 +65,17 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     .Text(LOCTEXT("BakeToMergedInstance", "Bake Selected to Merged Instance Mesh"))
                     .ToolTipText(LOCTEXT("BakeToMergedInstanceTooltip", "Merge selected StaticMeshActors AND previously-baked ISMActors into ONE ISM actor at the centroid of all instances. Different (mesh / materials / collision) tuples become separate ISMC inside one actor. Mismatched collision profiles trigger a confirmation dialog. Use this instead of UE's Group Actor. Sources destroyed."))
                     .OnClicked(this, &SMapUtilsPanel::OnBakeToMergedInstanceClicked)
+                ]
+
+                + SVerticalBox::Slot()
+                .AutoHeight()
+                .Padding(ButtonPadding)
+                [
+                    SNew(SButton)
+                    .HAlign(HAlign_Center)
+                    .Text(LOCTEXT("FixIsmRot", "Fix Baked ISM Rotation"))
+                    .ToolTipText(LOCTEXT("FixIsmRotTooltip", "For each selected ISM_Baked actor with Identity world rotation, extract the dominant instance rotation and move it onto the actor; visual position unchanged. Restores meaningful Local gizmo basis for actors produced by older buggy bakes (Grid builder + Chain builder BoundCenter mode). Idempotent: already-fixed actors are skipped. Undo-safe."))
+                    .OnClicked(this, &SMapUtilsPanel::OnFixBakedIsmRotationClicked)
                 ]
 
                 + SVerticalBox::Slot()
@@ -203,28 +169,20 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
 
 FReply SMapUtilsPanel::OnBakeToInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToInstanceMesh(OverrideMaterial.Get());
+    FMapUtilsActions::BakeSelectedToInstanceMesh();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnBakeToMergedInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToMergedInstanceMesh(OverrideMaterial.Get());
+    FMapUtilsActions::BakeSelectedToMergedInstanceMesh();
     return FReply::Handled();
 }
 
-FString SMapUtilsPanel::GetOverrideMaterialPath() const
+FReply SMapUtilsPanel::OnFixBakedIsmRotationClicked()
 {
-    if (UMaterialInterface* Mat = OverrideMaterial.Get())
-    {
-        return Mat->GetPathName();
-    }
-    return FString();
-}
-
-void SMapUtilsPanel::OnOverrideMaterialChanged(const FAssetData& AssetData)
-{
-    OverrideMaterial = Cast<UMaterialInterface>(AssetData.GetAsset());
+    FMapUtilsActions::FixBakedIsmRotation();
+    return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnCreateBlockingVolumeClicked()

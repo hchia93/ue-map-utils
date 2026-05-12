@@ -48,8 +48,10 @@ void FMeshChainBuilderDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     }
 
     // ECategoryPriority::Important pins both action and setup just below Transform.
-    DetailBuilder.EditCategory("Tool Setup", FText::GetEmpty(), ECategoryPriority::Important);
+    // SortOrder enforces Action (buttons) above Setup (mesh config) within the priority bucket.
     IDetailCategoryBuilder& Actions = DetailBuilder.EditCategory("Tool Action", FText::GetEmpty(), ECategoryPriority::Important);
+    Actions.SetSortOrder(0);
+    DetailBuilder.EditCategory("Tool Setup", FText::GetEmpty(), ECategoryPriority::Important).SetSortOrder(1);
 
     Actions.AddCustomRow(FText::FromString(TEXT("Status")))
     .WholeRowContent()
