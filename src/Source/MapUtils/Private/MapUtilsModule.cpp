@@ -1,5 +1,7 @@
 #include "MapUtilsModule.h"
 
+#include "Builder/MeshArcBuilder.h"
+#include "Builder/MeshArcBuilderDetails.h"
 #include "Builder/MeshChainBuilder.h"
 #include "Builder/MeshChainBuilderDetails.h"
 #include "Builder/MeshGridBuilder.h"
@@ -39,6 +41,7 @@ void FMapUtilsModule::StartupModule()
     FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
     PropertyEditorModule.RegisterCustomClassLayout(AMeshChainBuilder::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMeshChainBuilderDetails::MakeInstance));
     PropertyEditorModule.RegisterCustomClassLayout(AMeshGridBuilder::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMeshGridBuilderDetails::MakeInstance));
+    PropertyEditorModule.RegisterCustomClassLayout(AMeshArcBuilder::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMeshArcBuilderDetails::MakeInstance));
 }
 
 void FMapUtilsModule::ShutdownModule()
@@ -48,6 +51,7 @@ void FMapUtilsModule::ShutdownModule()
         FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
         PropertyEditorModule.UnregisterCustomClassLayout(AMeshChainBuilder::StaticClass()->GetFName());
         PropertyEditorModule.UnregisterCustomClassLayout(AMeshGridBuilder::StaticClass()->GetFName());
+        PropertyEditorModule.UnregisterCustomClassLayout(AMeshArcBuilder::StaticClass()->GetFName());
     }
 
     UToolMenus::UnRegisterStartupCallback(this);

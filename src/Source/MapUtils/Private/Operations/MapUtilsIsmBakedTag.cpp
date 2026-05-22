@@ -1,7 +1,9 @@
 #include "Operations/MapUtilsIsmBakedTag.h"
 
+#include "EditorActorFolders.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Folder.h"
 #include "GameFramework/Actor.h"
 
 namespace MapUtilsIsmBaked
@@ -36,7 +38,7 @@ namespace MapUtilsIsmBaked
         return NextIdx;
     }
 
-    int32 TagAndLabelWithIndex(AActor* Actor, int32 Index)
+    int32 TagAndLabelWithIndex(AActor* Actor, int32 Index, FName FallbackFolderPath)
     {
         if (!Actor)
         {
@@ -47,15 +49,30 @@ namespace MapUtilsIsmBaked
             Actor->Tags.Add(Tag);
         }
         Actor->SetActorLabel(FString::Printf(TEXT("ISM_Baked_%d"), Index));
+        // SpawnActor bypasses the outliner's "Make Current Folder" state; re-apply it so every baked
+        // ISM actor lands where freshly-placed editor actors would. Fall back to the caller-supplied
+        // folder (typically the builder's or source actor's) when current is unset. NAME_None on
+        // both means "leave at root" — SetFolderPath is skipped to avoid an unnecessary Modify.
+        if (UWorld* World = Actor->GetWorld())
+        {
+            const FFolder CurrentFolder = FActorFolders::Get().GetActorEditorContextFolder(*World);
+            const FName TargetFolder = !CurrentFolder.IsNone()
+                ? CurrentFolder.GetPath()
+                : FallbackFolderPath;
+            if (!TargetFolder.IsNone())
+            {
+                Actor->SetFolderPath(TargetFolder);
+            }
+        }
         return Index + 1;
     }
 
-    void TagAndLabel(AActor* Actor)
+    void TagAndLabel(AActor* Actor, FName FallbackFolderPath)
     {
         if (!Actor)
         {
             return;
         }
-        TagAndLabelWithIndex(Actor, PeekNextLabelIndex(Actor->GetWorld()));
+        TagAndLabelWithIndex(Actor, PeekNextLabelIndex(Actor->GetWorld()), FallbackFolderPath);
     }
 }

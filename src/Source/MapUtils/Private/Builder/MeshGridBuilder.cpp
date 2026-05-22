@@ -362,7 +362,7 @@ void AMeshGridBuilder::Editor_BakeToISM()
         return;
     }
 
-    MapUtilsIsmBaked::TagAndLabel(BakedActor);
+    MapUtilsIsmBaked::TagAndLabel(BakedActor, GetFolderPath());
     BakedActor->PostEditChange();
 
     UE_LOG(LogMapUtils, Log, TEXT("MeshGridBuilder::BakeToISM: %d instance(s) across %d ISMC group(s)"), InstanceCount, Groups.Num());

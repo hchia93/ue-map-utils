@@ -6,32 +6,23 @@
 #include "Builder/MeshBuilderPivot.h"
 #include "Builder/MeshBuilderProfile.h"
 
-#include "MeshChainBuilder.generated.h"
+#include "MeshArcBuilder.generated.h"
 
 class UBillboardComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 
-// TurnAngleDeg sign: 0 = forward only, > 0 = right turn, < 0 = left turn.
-// Corner is live-tracked from ActiveCornerProfileId at rebuild time, not captured per step.
-USTRUCT()
-struct FMeshChainStep
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    FGuid ForwardProfileId;
-
-    UPROPERTY()
-    float TurnAngleDeg = 0.f;
-};
-
+// Parametric arc generator: Forward profiles as chord-tangent segments on a circle of radius R.
+// Coverage (0..100%) controls span. Corner profiles (single Active) sit at joints.
+// Template.Y = extra inward, Template.Z = vertical, Template.X unused.
 UCLASS(Blueprintable)
-class MAPUTILS_API AMeshChainBuilder : public AActor
+class MAPUTILS_API AMeshArcBuilder : public AActor
 {
     GENERATED_BODY()
 
 public:
 
-    AMeshChainBuilder();
+    AMeshArcBuilder();
 
     virtual void OnConstruction(const FTransform& Transform) override;
 
@@ -43,32 +34,45 @@ public:
     FGuid GetActiveCornerProfileId() const { return ActiveCornerProfileId; }
     void Editor_SetActiveCornerProfileId(FGuid InId);
 
-    // One click = one step. TurnAngleDeg sign: 0 = straight forward, > 0 = right, < 0 = left.
-    void Editor_AddNode(FGuid ForwardProfileId, float TurnAngleDeg);
-
-    void Editor_RemoveLast();
-    void Editor_ClearChain();
-    void Editor_RegenerateChain();
+    void Editor_RegenerateArc();
     void Editor_BakeToISM();
 #endif // WITH_EDITOR
 
-    int32 GetStepCount() const { return Steps.Num(); }
+    int32 GetSlotCount() const { return m_Slots.Num(); }
 
 protected:
 
-    // Each entry exposes one row of [45L|90L|Fwd|90R|45R] in the Details panel.
+    // Forward profiles cycle in array order around the arc (index N uses ForwardProfiles[N % Count]).
+    // Place one for a uniform fence; place several for an A/B/C-style repeat pattern.
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Forward Profiles")
     TArray<FMeshBuilderProfile> ForwardProfiles;
 
-    // Only one corner is active at a time; every turn step reads it live at rebuild time.
+    // Only ActiveCornerProfileId is used; the Details panel renders these as a radio list.
     UPROPERTY(EditAnywhere, Category = "Tool Setup|Corner Profiles")
     TArray<FMeshBuilderProfile> CornerProfiles;
 
     UPROPERTY()
     FGuid ActiveCornerProfileId;
 
-    UPROPERTY()
-    TArray<FMeshChainStep> Steps;
+    // Fraction of the full circle to cover, 0..100 percent. Slider clamps to [0, 100].
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Arc", meta = (ClampMin = "0.0", ClampMax = "100.0", UIMin = "0.0", UIMax = "100.0", Units = "Percent"))
+    float ArcCoveragePercent = 100.f;
+
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Arc", meta = (ClampMin = "0.0", UIMin = "0.0"))
+    float Radius = 500.f;
+
+    // Rotation around Z (in degrees) applied to where the arc starts. 0 = arc begins at +X axis.
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Arc")
+    float StartAngleDeg = 0.f;
+
+    // Lays the arc clockwise (negative angle direction) when true. Default is CCW (math convention).
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Arc")
+    bool bClockwise = false;
+
+    // Positive value shifts every slot toward the center by this distance. Useful for placing
+    // a fence ring "inside" the nominal R circle.
+    UPROPERTY(EditAnywhere, Category = "Tool Setup|Arc")
+    float InwardOffset = 0.f;
 
     UPROPERTY(EditAnywhere, Category = "Tool Action")
     EBakedPivotLocation BakedPivotLocation = EBakedPivotLocation::Default;
@@ -86,10 +90,7 @@ private:
     UPROPERTY()
     TArray<FMeshBuilderSlotState> m_Slots;
 
-    void RebuildChain();
-
-    // Drop Steps whose ForwardProfileId no longer resolves (e.g. LD deleted the profile entry).
-    void PruneOrphanSteps();
+    void RebuildArc();
 
     const FMeshBuilderProfile* FindProfile(FGuid InId, bool bIsCorner) const;
 
@@ -98,13 +99,12 @@ private:
     FQuat GetMeshAlignmentQuat(EMeshOrientation Orient) const;
     FVector GetMeshBoundsCenterLocal(const UStaticMesh* Mesh) const;
 
-    UStaticMeshComponent* AcquireSlotComponent(EMeshBuilderSlotType InType, int32 StepIndex, UStaticMesh* Mesh);
+    UStaticMeshComponent* AcquireSlotComponent(EMeshBuilderSlotType InType, int32 SlotIndex, UStaticMesh* Mesh);
 
     void DestroyAllSlots();
     void ApplyProfileCollision(const FMeshBuilderProfile& Profile, UStaticMeshComponent* Comp) const;
     void ApplyProfileOverrideMaterial(const FMeshBuilderProfile& Profile, UStaticMeshComponent* Comp) const;
 
-    // Auto-assign GUIDs to any profiles whose ProfileId is still default (e.g. freshly added in Details).
     void EnsureProfileIds();
 
 #if WITH_EDITOR

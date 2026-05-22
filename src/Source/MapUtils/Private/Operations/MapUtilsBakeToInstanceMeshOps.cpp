@@ -64,7 +64,7 @@ namespace
 
         Ismc->AddInstance(FTransform::Identity, /*bWorldSpace*/ false);
 
-        MapUtilsIsmBaked::TagAndLabelWithIndex(Out, LabelIndex);
+        MapUtilsIsmBaked::TagAndLabelWithIndex(Out, LabelIndex, Source->GetFolderPath());
 
         Out->PostEditChange();
         return Out;

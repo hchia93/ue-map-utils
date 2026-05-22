@@ -273,7 +273,11 @@ FMapUtilsBakeMergedInstanceResult FMapUtilsBakeToMergedInstanceMeshOps::BakeToMe
             }
         }
 
-        MapUtilsIsmBaked::TagAndLabel(MergedActor);
+        // Multi-source merge: pick the first accepted source's folder as fallback. If sources span
+        // multiple folders the merged result still lands somewhere reasonable rather than at root;
+        // outliner's current folder, when set, overrides this anyway.
+        const FName FallbackFolder = AcceptedSources.IsEmpty() ? NAME_None : AcceptedSources[0]->GetFolderPath();
+        MapUtilsIsmBaked::TagAndLabel(MergedActor, FallbackFolder);
         MergedActor->PostEditChange();
 
         // Deselect sources while still valid. SelectNone after EditorDestroyActor would

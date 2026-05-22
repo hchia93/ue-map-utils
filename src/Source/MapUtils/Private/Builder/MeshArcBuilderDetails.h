@@ -4,10 +4,10 @@
 #include "IDetailCustomization.h"
 #include "Styling/SlateTypes.h"
 
-class AMeshChainBuilder;
+class AMeshArcBuilder;
 class IDetailCategoryBuilder;
 
-class FMeshChainBuilderDetails : public IDetailCustomization
+class FMeshArcBuilderDetails : public IDetailCustomization
 {
 public:
 
@@ -17,14 +17,10 @@ public:
 
 private:
 
-    void BuildForwardProfileRows(IDetailCategoryBuilder& Category);
     void BuildCornerProfileRows(IDetailCategoryBuilder& Category);
     void BuildLifecycleRow(IDetailCategoryBuilder& Category);
     void BuildBakeRow(IDetailCategoryBuilder& Category);
 
-    FReply OnAddNodeClicked(FGuid ProfileId, float TurnAngleDeg);
-    FReply OnUndoClicked();
-    FReply OnClearClicked();
     FReply OnRegenerateClicked();
     FReply OnBakeClicked();
 
@@ -33,5 +29,5 @@ private:
 
     FText GetStatusText() const;
 
-    TWeakObjectPtr<AMeshChainBuilder> m_Target;
+    TWeakObjectPtr<AMeshArcBuilder> m_Target;
 };
