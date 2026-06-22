@@ -105,7 +105,7 @@ private:
     void ApplyProfileCollision(const FMeshBuilderProfile& Profile, UStaticMeshComponent* Comp) const;
     void ApplyProfileOverrideMaterial(const FMeshBuilderProfile& Profile, UStaticMeshComponent* Comp) const;
 
-    void EnsureProfileIds();
+    void RegenerateProfileIds();
 
 #if WITH_EDITOR
     FTransform ComputeBakePivotXf() const;

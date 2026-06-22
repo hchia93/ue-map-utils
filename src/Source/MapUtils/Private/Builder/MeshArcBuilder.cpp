@@ -85,7 +85,7 @@ AMeshArcBuilder::AMeshArcBuilder()
 void AMeshArcBuilder::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
-    EnsureProfileIds();
+    RegenerateProfileIds();
     RebuildArc();
 }
 
@@ -97,7 +97,7 @@ void AMeshArcBuilder::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
     {
         return;
     }
-    EnsureProfileIds();
+    RegenerateProfileIds();
     RebuildArc();
 }
 #endif // WITH_EDITOR
@@ -119,7 +119,7 @@ const FMeshBuilderProfile* AMeshArcBuilder::FindProfile(FGuid InId, bool bIsCorn
     return nullptr;
 }
 
-void AMeshArcBuilder::EnsureProfileIds()
+void AMeshArcBuilder::RegenerateProfileIds()
 {
     auto FixUp = [](TArray<FMeshBuilderProfile>& Arr)
     {

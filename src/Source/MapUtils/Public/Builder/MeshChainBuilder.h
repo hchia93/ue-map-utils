@@ -105,7 +105,7 @@ private:
     void ApplyProfileOverrideMaterial(const FMeshBuilderProfile& Profile, UStaticMeshComponent* Comp) const;
 
     // Auto-assign GUIDs to any profiles whose ProfileId is still default (e.g. freshly added in Details).
-    void EnsureProfileIds();
+    void RegenerateProfileIds();
 
 #if WITH_EDITOR
     FTransform ComputeBakePivotXf() const;

@@ -37,7 +37,7 @@ namespace MeshBuilderTestsLocal
     }
 
     // Issue a non-Interactive property-changed event so AMeshChainBuilder / AMeshArcBuilder run their
-    // full reaction (EnsureProfileIds + PruneOrphanSteps + rebuild). Default-construct + ValueSet
+    // full reaction (RegenerateProfileIds + PruneOrphanSteps + rebuild). Default-construct + ValueSet
     // matches the path taken when LD commits a Details panel edit.
     static void FireNonInteractivePropertyChange(UObject* Object)
     {
@@ -56,7 +56,7 @@ namespace MeshBuilderTestsLocal
     }
 
     // Build a profile with a freshly minted GUID and the given mesh. The chain / arc builders auto-assign
-    // GUIDs via EnsureProfileIds, but tests need to know the id up front to reference Steps.
+    // GUIDs via RegenerateProfileIds, but tests need to know the id up front to reference Steps.
     static FMeshBuilderProfile MakeProfile(UStaticMesh* Mesh, EMeshOrientation Orient = EMeshOrientation::X)
     {
         FMeshBuilderProfile P;
@@ -89,7 +89,7 @@ bool FMapUtilsMeshChainStepLifecycleTest::RunTest(const FString&)
     // Empty chain.
     TestEqual(TEXT("empty chain step count"), Builder->GetStepCount(), 0);
 
-    // Seed a forward profile and commit so EnsureProfileIds runs.
+    // Seed a forward profile and commit so RegenerateProfileIds runs.
     UStaticMesh* Cube = TryLoadCubeMesh();
     FMeshBuilderProfile FwdA = MakeProfile(Cube);
     const FGuid FwdAId = FwdA.ProfileId;
@@ -189,10 +189,10 @@ bool FMapUtilsMeshChainPruneOrphanStepsTest::RunTest(const FString&)
     return true;
 }
 
-// EnsureProfileIds assigns a GUID to any default-constructed profile and stamps its BodyInstance with the
+// RegenerateProfileIds assigns a GUID to any default-constructed profile and stamps its BodyInstance with the
 // NoCollision named profile. Pre-existing valid ids stay put and their BodyInstance is left alone.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshChainEnsureProfileIdsTest, "MapUtils.Builder.MeshChain.EnsureProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshChainEnsureProfileIdsTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshChainRegenerateProfileIdsTest, "MapUtils.Builder.MeshChain.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMapUtilsMeshChainRegenerateProfileIdsTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 
@@ -228,7 +228,7 @@ bool FMapUtilsMeshChainEnsureProfileIdsTest::RunTest(const FString&)
     TestFalse(TEXT("fresh profile starts with invalid id"), Fresh.ProfileId.IsValid());
     Access->ForwardProfiles.Add(Fresh);
 
-    // Also exercise the corner array branch of EnsureProfileIds.
+    // Also exercise the corner array branch of RegenerateProfileIds.
     FMeshBuilderProfile FreshCorner;
     Access->CornerProfiles.Add(FreshCorner);
 
@@ -354,10 +354,10 @@ bool FMapUtilsMeshArcCoverageTest::RunTest(const FString&)
     return true;
 }
 
-// Arc EnsureProfileIds: same contract as the chain builder. Verifies the shared logic actually runs in
+// Arc RegenerateProfileIds: same contract as the chain builder. Verifies the shared logic actually runs in
 // the arc actor's PostEditChangeProperty path.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshArcEnsureProfileIdsTest, "MapUtils.Builder.MeshArc.EnsureProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshArcEnsureProfileIdsTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshArcRegenerateProfileIdsTest, "MapUtils.Builder.MeshArc.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMapUtilsMeshArcRegenerateProfileIdsTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 

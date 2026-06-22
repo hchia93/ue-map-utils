@@ -86,7 +86,7 @@ AMeshChainBuilder::AMeshChainBuilder()
 void AMeshChainBuilder::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
-    EnsureProfileIds();
+    RegenerateProfileIds();
     RebuildChain();
 }
 
@@ -99,7 +99,7 @@ void AMeshChainBuilder::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
     {
         return;
     }
-    EnsureProfileIds();
+    RegenerateProfileIds();
     PruneOrphanSteps();
     RebuildChain();
 }
@@ -146,7 +146,7 @@ void AMeshChainBuilder::PruneOrphanSteps()
     });
 }
 
-void AMeshChainBuilder::EnsureProfileIds()
+void AMeshChainBuilder::RegenerateProfileIds()
 {
     auto FixUp = [](TArray<FMeshBuilderProfile>& Arr)
     {
