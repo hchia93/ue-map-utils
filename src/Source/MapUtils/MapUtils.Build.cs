@@ -12,6 +12,7 @@ public class MapUtils : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
+                "AssetRegistry",
                 "InputCore",
                 "UnrealEd",
                 "Slate",
