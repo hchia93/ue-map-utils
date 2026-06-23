@@ -68,8 +68,8 @@ namespace MeshBuilderTestsLocal
 }
 
 // Pure step-count contract: Editor_AddNode / Editor_RemoveLast / Editor_ClearChain track Steps.Num().
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshChainStepLifecycleTest, "MapUtils.Builder.MeshChain.StepLifecycle", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshChainStepLifecycleTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshChainStepLifecycleTest, "MapUtils.Builder.MeshChain.StepLifecycle", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMeshChainStepLifecycleTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 
@@ -139,8 +139,8 @@ bool FMapUtilsMeshChainStepLifecycleTest::RunTest(const FString&)
 
 // Removing a ForwardProfile entry should drop any Steps that referenced it on the next non-Interactive
 // PostEditChangeProperty (PruneOrphanSteps). Steps referencing live profiles survive.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshChainPruneOrphanStepsTest, "MapUtils.Builder.MeshChain.PruneOrphanSteps", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshChainPruneOrphanStepsTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshChainPruneOrphanStepsTest, "MapUtils.Builder.MeshChain.PruneOrphanSteps", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMeshChainPruneOrphanStepsTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 
@@ -191,8 +191,8 @@ bool FMapUtilsMeshChainPruneOrphanStepsTest::RunTest(const FString&)
 
 // RegenerateProfileIds assigns a GUID to any default-constructed profile and stamps its BodyInstance with the
 // NoCollision named profile. Pre-existing valid ids stay put and their BodyInstance is left alone.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshChainRegenerateProfileIdsTest, "MapUtils.Builder.MeshChain.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshChainRegenerateProfileIdsTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshChainRegenerateProfileIdsTest, "MapUtils.Builder.MeshChain.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMeshChainRegenerateProfileIdsTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 
@@ -259,8 +259,8 @@ bool FMapUtilsMeshChainRegenerateProfileIdsTest::RunTest(const FString&)
 
 // Arc parametric placement: at 100% coverage corners coincide on the seam (count == forwards); at a
 // partial coverage the open arc places one extra corner at the trailing joint.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshArcCoverageTest, "MapUtils.Builder.MeshArc.Coverage", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshArcCoverageTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshArcCoverageTest, "MapUtils.Builder.MeshArc.Coverage", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMeshArcCoverageTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 
@@ -356,8 +356,8 @@ bool FMapUtilsMeshArcCoverageTest::RunTest(const FString&)
 
 // Arc RegenerateProfileIds: same contract as the chain builder. Verifies the shared logic actually runs in
 // the arc actor's PostEditChangeProperty path.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapUtilsMeshArcRegenerateProfileIdsTest, "MapUtils.Builder.MeshArc.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
-bool FMapUtilsMeshArcRegenerateProfileIdsTest::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshArcRegenerateProfileIdsTest, "MapUtils.Builder.MeshArc.RegenerateProfileIds", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+bool FMeshArcRegenerateProfileIdsTest::RunTest(const FString&)
 {
     using namespace MeshBuilderTestsLocal;
 

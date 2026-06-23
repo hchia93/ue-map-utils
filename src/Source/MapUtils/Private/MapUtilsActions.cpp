@@ -1,11 +1,11 @@
 #include "MapUtilsActions.h"
 
-#include "Exports/MapUtilsContextExporter.h"
+#include "Exports/LevelContextExporter.h"
 #include "MapUtilsModule.h"
-#include "Operations/MapUtilsBakeToInstanceMeshOps.h"
-#include "Operations/MapUtilsBakeToMergedInstanceMeshOps.h"
-#include "Operations/MapUtilsBlockingVolumeOps.h"
-#include "Operations/MapUtilsFixBakedIsmRotationOps.h"
+#include "Operations/BakeToInstanceMeshOps.h"
+#include "Operations/BakeToMergedInstanceMeshOps.h"
+#include "Operations/CreateBlockingVolumeOps.h"
+#include "Operations/FixBakedIsmRotationOps.h"
 
 #include "Editor.h"
 #include "Engine/Level.h"
@@ -134,7 +134,7 @@ void FMapUtilsActions::CreateBlockingVolumeFromSelection()
         return;
     }
 
-    const FMapUtilsBlockingVolumeWrapResult Result = FMapUtilsBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
+    const FBlockingVolumeWrapResult Result = FCreateBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
 
     if (Result.bSuccess)
     {
@@ -164,7 +164,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh()
         return;
     }
 
-    const FMapUtilsBakeInstanceResult Result = FMapUtilsBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
+    const FBakeInstanceResult Result = FBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
 
     if (Result.bSuccess)
     {
@@ -204,7 +204,7 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
         return;
     }
 
-    const FMapUtilsBakeMergedInstanceResult Result = FMapUtilsBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
+    const FBakeMergedInstanceResult Result = FBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
 
     if (Result.bUserCancelled)
     {
@@ -238,7 +238,7 @@ void FMapUtilsActions::FixBakedIsmRotation()
         return;
     }
 
-    const FMapUtilsFixBakedIsmRotationResult Result = FMapUtilsFixBakedIsmRotationOps::Fix(Actors);
+    const FFixBakedIsmRotationResult Result = FFixBakedIsmRotationOps::Fix(Actors);
 
     if (Result.FixedActorCount > 0)
     {
@@ -275,7 +275,7 @@ void FMapUtilsActions::ExportStaticMeshContext()
         return;
     }
 
-    const FMapUtilsContextExportResult Result = FMapUtilsContextExporter::ExportStaticMeshContext(World);
+    const FLevelContextExportResult Result = FLevelContextExporter::ExportStaticMeshContext(World);
 
     FMessageLog Log(MapUtilsLogName);
     Log.NewPage(LOCTEXT("ExportStaticMeshPage", "Export StaticMesh Context"));
@@ -301,7 +301,7 @@ void FMapUtilsActions::ExportCollisionContext()
         return;
     }
 
-    const FMapUtilsContextExportResult Result = FMapUtilsContextExporter::ExportCollisionContext(World);
+    const FLevelContextExportResult Result = FLevelContextExporter::ExportCollisionContext(World);
 
     FMessageLog Log(MapUtilsLogName);
     Log.NewPage(LOCTEXT("ExportCollisionPage", "Export Collision Context"));

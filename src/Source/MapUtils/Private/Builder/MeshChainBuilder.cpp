@@ -1,6 +1,6 @@
 #include "Builder/MeshChainBuilder.h"
 
-#include "Operations/MapUtilsIsmBakedTag.h"
+#include "Operations/IsmBakeTag.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -797,7 +797,7 @@ void AMeshChainBuilder::Editor_BakeToISM()
         return;
     }
 
-    MapUtilsIsmBaked::TagAndLabel(BakedActor, GetFolderPath());
+    IsmBaked::TagAndLabel(BakedActor, GetFolderPath());
     BakedActor->PostEditChange();
 }
 #endif // WITH_EDITOR

@@ -1,7 +1,7 @@
 #include "Builder/MeshGridBuilder.h"
 
 #include "MapUtilsModule.h"
-#include "Operations/MapUtilsIsmBakedTag.h"
+#include "Operations/IsmBakeTag.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -362,7 +362,7 @@ void AMeshGridBuilder::Editor_BakeToISM()
         return;
     }
 
-    MapUtilsIsmBaked::TagAndLabel(BakedActor, GetFolderPath());
+    IsmBaked::TagAndLabel(BakedActor, GetFolderPath());
     BakedActor->PostEditChange();
 
     UE_LOG(LogMapUtils, Log, TEXT("MeshGridBuilder::BakeToISM: %d instance(s) across %d ISMC group(s)"), InstanceCount, Groups.Num());

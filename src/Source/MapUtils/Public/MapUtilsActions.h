@@ -7,7 +7,7 @@ class UWorld;
 
 /**
  * Stateless action entry points invoked by the Slate panel and context menus.
- * Not menu registration (see MapUtilsTabSpawner / MapUtilsContextMenu).
+ * Not menu registration (see MapUtilsTabSpawner / MapUtilsActorContextMenu).
  */
 class FMapUtilsActions
 {

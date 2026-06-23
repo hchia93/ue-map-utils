@@ -1,7 +1,7 @@
 #include "SMapUtilsPanel.h"
 
 #include "MapUtilsActions.h"
-#include "Widgets/SMapUtilsDiffDialog.h"
+#include "Widgets/SLevelDiffDialog.h"
 
 #include "Styling/AppStyle.h"
 #include "Widgets/Input/SButton.h"
@@ -148,7 +148,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("ExportSM", "Export StaticMesh Context"))
-                    .ToolTipText(LOCTEXT("ExportSMTooltip", "Write focused JSON (actors, mesh paths, materials, bounds) to Intermediate/MapUtilsContext/."))
+                    .ToolTipText(LOCTEXT("ExportSMTooltip", "Write focused JSON (actors, mesh paths, materials, bounds) to Intermediate/LevelContext/."))
                     .OnClicked(this, &SMapUtilsPanel::OnExportStaticMeshClicked)
                 ]
 
@@ -159,7 +159,7 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
                     SNew(SButton)
                     .HAlign(HAlign_Center)
                     .Text(LOCTEXT("ExportColl", "Export Collision Context"))
-                    .ToolTipText(LOCTEXT("ExportCollTooltip", "Write collision-enabled actor candidates JSON to Intermediate/MapUtilsContext/."))
+                    .ToolTipText(LOCTEXT("ExportCollTooltip", "Write collision-enabled actor candidates JSON to Intermediate/LevelContext/."))
                     .OnClicked(this, &SMapUtilsPanel::OnExportCollisionClicked)
                 ]
             ]
@@ -199,7 +199,7 @@ FReply SMapUtilsPanel::OnAuditClicked()
 
 FReply SMapUtilsPanel::OnReviewModifiedClicked()
 {
-    SMapUtilsDiffDialog::OpenWindow();
+    SLevelDiffDialog::OpenWindow();
     return FReply::Handled();
 }
 
