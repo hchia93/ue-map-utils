@@ -39,7 +39,7 @@ if [ -z "${UPROJECT:-}" ]; then
 fi
 BP_ROOT="${BP_ROOT:-Content}"
 
-WRAPPER="$PWD/Plugins/UAssetJsonExporter/scripts/run_commandlet.sh"
+WRAPPER="$PWD/Plugins/UAssetWorkbench/scripts/run_commandlet.sh"
 EXPORT_ROOT="$PWD/Intermediate/UAssetExport"
 WORK_ROOT="$PWD/Intermediate/BlueprintToStaticMeshReplacer"
 BEFORE_DIR="$WORK_ROOT/Before"

@@ -107,7 +107,7 @@ namespace
     }
 }
 
-FFixBakedIsmRotationResult FFixBakedIsmRotationOps::Fix(const TArray<AActor*>& Actors)
+FFixBakedIsmRotationResult FixBakedIsmRotationOps::Fix(const TArray<AActor*>& Actors)
 {
     FFixBakedIsmRotationResult Result;
     Result.SelectedActorCount = Actors.Num();

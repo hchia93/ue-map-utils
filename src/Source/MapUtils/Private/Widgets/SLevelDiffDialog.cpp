@@ -262,7 +262,7 @@ void SLevelDiffDialog::RefreshList()
 
     if (World)
     {
-        const TArray<FDiffEntry> Entries = FLevelDiffOps::ScanModifiedActors(World);
+        const TArray<FDiffEntry> Entries = LevelDiffOps::ScanModifiedActors(World);
         Rows.Reserve(Entries.Num());
         for (const FDiffEntry& Entry : Entries)
         {
@@ -313,7 +313,7 @@ FReply SLevelDiffDialog::OnMoveClicked()
         return FReply::Handled();
     }
 
-    const FMoveResult Result = FMoveActorsToLevelOps::MoveActorsToLevel(Checked, DestLevel);
+    const FMoveResult Result = MoveActorsToLevelOps::MoveActorsToLevel(Checked, DestLevel);
 
     if (Result.bSuccess)
     {

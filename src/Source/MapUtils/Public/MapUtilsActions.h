@@ -9,17 +9,16 @@ class UWorld;
  * Stateless action entry points invoked by the Slate panel and context menus.
  * Not menu registration (see MapUtilsTabSpawner / MapUtilsActorContextMenu).
  */
-class FMapUtilsActions
+namespace MapUtilsActions
 {
-public:
-    static void AuditCurrentLevel();
-    static void CreateBlockingVolumeFromSelection();
-    static void BakeSelectedToInstanceMesh();
-    static void BakeSelectedToMergedInstanceMesh();
-    static void FixBakedIsmRotation();
-    static void ExportStaticMeshContext();
-    static void ExportCollisionContext();
+    void AuditCurrentLevel();
+    void CreateBlockingVolumeFromSelection();
+    void BakeSelectedToInstanceMesh();
+    void BakeSelectedToMergedInstanceMesh();
+    void FixBakedIsmRotation();
+    void ExportStaticMeshContext();
+    void ExportCollisionContext();
 
     /** Display name for level in UI (short name; "Persistent Level" for persistent). */
-    static FString GetLevelDisplayName(UWorld* World, ULevel* Level);
-};
+    FString GetLevelDisplayName(UWorld* World, ULevel* Level);
+}

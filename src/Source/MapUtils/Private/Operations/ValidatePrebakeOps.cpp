@@ -39,7 +39,7 @@ namespace
     }
 }
 
-bool FValidatePrebakeOps::ConfirmBodyInstanceProfileUniformity(const TArray<FBakeProfileSample>& Samples)
+bool ValidatePrebakeOps::ConfirmBodyInstanceProfileUniformity(const TArray<FBakeProfileSample>& Samples)
 {
     TMap<FProfileKey, TArray<FString>> Groups;
     for (const FBakeProfileSample& Sample : Samples)

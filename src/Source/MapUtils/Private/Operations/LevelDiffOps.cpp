@@ -5,11 +5,11 @@
 
 #include "Editor.h"
 #include "Editor/Transactor.h"
-#include "Misc/ITransaction.h"
-#include "Misc/TransactionObjectEvent.h"
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "Misc/ITransaction.h"
+#include "Misc/TransactionObjectEvent.h"
 
 namespace
 {
@@ -18,7 +18,7 @@ namespace
     constexpr int32 BulkActorThreshold = 10;
 }
 
-TArray<FDiffEntry> FLevelDiffOps::ScanModifiedActors(UWorld* World)
+TArray<FDiffEntry> LevelDiffOps::ScanModifiedActors(UWorld* World)
 {
     TArray<FDiffEntry> Result;
 
@@ -97,7 +97,7 @@ TArray<FDiffEntry> FLevelDiffOps::ScanModifiedActors(UWorld* World)
             Entry.Actor = Actor;
             Entry.ActorDisplayName = Actor->GetActorLabel();
             Entry.Level = Level;
-            Entry.LevelDisplayName = FMapUtilsActions::GetLevelDisplayName(World, Level);
+            Entry.LevelDisplayName = MapUtilsActions::GetLevelDisplayName(World, Level);
             Result.Add(MoveTemp(Entry));
         }
     }
@@ -114,7 +114,7 @@ TArray<FDiffEntry> FLevelDiffOps::ScanModifiedActors(UWorld* World)
     return Result;
 }
 
-FActorChangeSummary FLevelDiffOps::GetActorChanges(AActor* Actor)
+FActorChangeSummary LevelDiffOps::GetActorChanges(AActor* Actor)
 {
     FActorChangeSummary Result;
 

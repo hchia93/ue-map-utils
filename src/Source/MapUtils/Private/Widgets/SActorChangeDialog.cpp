@@ -93,7 +93,7 @@ void SActorChangeDialog::Construct(const FArguments& InArgs)
         HeaderText = LOCTEXT("ActorInvalid", "Actor no longer valid");
     }
 
-    const FActorChangeSummary Summary = Actor ? FLevelDiffOps::GetActorChanges(Actor) : FActorChangeSummary();
+    const FActorChangeSummary Summary = Actor ? LevelDiffOps::GetActorChanges(Actor) : FActorChangeSummary();
 
     TSharedRef<SVerticalBox> Content = SNew(SVerticalBox);
 

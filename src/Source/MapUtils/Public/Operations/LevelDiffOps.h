@@ -34,9 +34,8 @@ struct FActorChangeSummary
     TArray<FObjectChange> Objects;
 };
 
-class FLevelDiffOps
+namespace LevelDiffOps
 {
-public:
     /**
      * Scan the editor transaction buffer (GEditor->Trans) and collect every
      * AActor referenced by any transaction in the queue that still belongs
@@ -46,11 +45,11 @@ public:
      *
      * Returns entries sorted by LevelDisplayName then ActorDisplayName.
      */
-    static TArray<FDiffEntry> ScanModifiedActors(UWorld* World);
+    TArray<FDiffEntry> ScanModifiedActors(UWorld* World);
 
     /**
      * Aggregate property-level changes for a single actor (and its sub-objects)
      * across every active transaction. Pulls from FTransaction::GenerateDiff().
      */
-    static FActorChangeSummary GetActorChanges(AActor* Actor);
-};
+    FActorChangeSummary GetActorChanges(AActor* Actor);
+}

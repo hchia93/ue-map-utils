@@ -1,9 +1,9 @@
 #include "Operations/BakeToMergedInstanceMeshOps.h"
 
 #include "MapUtilsModule.h"
-#include "Operations/ValidatePrebakeOps.h"
-#include "Operations/MigrateStaticMeshComponentSettingsOps.h"
 #include "Operations/IsmBakeTag.h"
+#include "Operations/MigrateStaticMeshComponentSettingsOps.h"
+#include "Operations/ValidatePrebakeOps.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -89,7 +89,7 @@ namespace
     }
 }
 
-FBakeMergedInstanceResult FBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(const TArray<AActor*>& Actors)
+FBakeMergedInstanceResult BakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(const TArray<AActor*>& Actors)
 {
     FBakeMergedInstanceResult Result;
 

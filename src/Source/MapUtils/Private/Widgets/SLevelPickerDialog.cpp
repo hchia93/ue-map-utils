@@ -32,7 +32,7 @@ void SLevelPickerDialog::Construct(const FArguments& InArgs)
             }
             TSharedPtr<FLevelItem> Item = MakeShared<FLevelItem>();
             Item->Level = Level;
-            Item->DisplayName = FMapUtilsActions::GetLevelDisplayName(WorldPtr, Level);
+            Item->DisplayName = MapUtilsActions::GetLevelDisplayName(WorldPtr, Level);
             LevelItems.Add(Item);
         }
 
@@ -167,7 +167,7 @@ ULevel* SLevelPickerDialog::OpenModal(UWorld* WorldPtr, TSharedPtr<SWindow> Root
     }
 
     ULevel* Result = Dialog.IsValid() ? Dialog->PickedLevel.Get() : nullptr;
-    const FString PickedName = Result ? FMapUtilsActions::GetLevelDisplayName(WorldPtr, Result) : FString(TEXT("<cancel>"));
+    const FString PickedName = Result ? MapUtilsActions::GetLevelDisplayName(WorldPtr, Result) : FString(TEXT("<cancel>"));
     UE_LOG(LogMapUtils, Log, TEXT("LevelPicker: picked %s"), *PickedName);
     return Result;
 }

@@ -169,31 +169,31 @@ void SMapUtilsPanel::Construct(const FArguments& InArgs)
 
 FReply SMapUtilsPanel::OnBakeToInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToInstanceMesh();
+    MapUtilsActions::BakeSelectedToInstanceMesh();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnBakeToMergedInstanceClicked()
 {
-    FMapUtilsActions::BakeSelectedToMergedInstanceMesh();
+    MapUtilsActions::BakeSelectedToMergedInstanceMesh();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnFixBakedIsmRotationClicked()
 {
-    FMapUtilsActions::FixBakedIsmRotation();
+    MapUtilsActions::FixBakedIsmRotation();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnCreateBlockingVolumeClicked()
 {
-    FMapUtilsActions::CreateBlockingVolumeFromSelection();
+    MapUtilsActions::CreateBlockingVolumeFromSelection();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnAuditClicked()
 {
-    FMapUtilsActions::AuditCurrentLevel();
+    MapUtilsActions::AuditCurrentLevel();
     return FReply::Handled();
 }
 
@@ -205,13 +205,13 @@ FReply SMapUtilsPanel::OnReviewModifiedClicked()
 
 FReply SMapUtilsPanel::OnExportStaticMeshClicked()
 {
-    FMapUtilsActions::ExportStaticMeshContext();
+    MapUtilsActions::ExportStaticMeshContext();
     return FReply::Handled();
 }
 
 FReply SMapUtilsPanel::OnExportCollisionClicked()
 {
-    FMapUtilsActions::ExportCollisionContext();
+    MapUtilsActions::ExportCollisionContext();
     return FReply::Handled();
 }
 

@@ -1,8 +1,8 @@
 #include "Operations/BakeToInstanceMeshOps.h"
 
 #include "MapUtilsModule.h"
-#include "Operations/MigrateStaticMeshComponentSettingsOps.h"
 #include "Operations/IsmBakeTag.h"
+#include "Operations/MigrateStaticMeshComponentSettingsOps.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -71,7 +71,7 @@ namespace
     }
 }
 
-FBakeInstanceResult FBakeToInstanceMeshOps::BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors)
+FBakeInstanceResult BakeToInstanceMeshOps::BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors)
 {
     FBakeInstanceResult Result;
 

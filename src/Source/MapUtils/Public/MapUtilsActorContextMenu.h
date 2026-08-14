@@ -2,13 +2,8 @@
 
 #include "CoreMinimal.h"
 
-class FMapUtilsActorContextMenu
+namespace MapUtilsActorContextMenu
 {
-public:
-    static void Register();
-    static void Unregister();
-
-private:
-    static void OnReplaceStaticMesh();
-    static bool CanReplaceStaticMesh();
-};
+    void Register();
+    void Unregister();
+}

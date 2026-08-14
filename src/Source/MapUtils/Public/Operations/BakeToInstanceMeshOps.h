@@ -18,8 +18,7 @@ struct FBakeInstanceResult
  * No grouping, no merging: N selected -> N output actors. Source actors destroyed.
  * Full component-settings migration via MigrateStaticMeshComponentSettingsOps.
  */
-class FBakeToInstanceMeshOps
+namespace BakeToInstanceMeshOps
 {
-public:
-    static FBakeInstanceResult BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors);
-};
+    FBakeInstanceResult BakeToInstanceMesh(const TArray<AStaticMeshActor*>& Actors);
+}

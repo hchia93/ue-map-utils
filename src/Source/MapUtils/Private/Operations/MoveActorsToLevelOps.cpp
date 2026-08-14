@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "MoveActorsToLevelOps"
 
-FMoveResult FMoveActorsToLevelOps::MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel)
+FMoveResult MoveActorsToLevelOps::MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel)
 {
     FMoveResult Result;
 

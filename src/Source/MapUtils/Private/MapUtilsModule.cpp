@@ -36,7 +36,7 @@ void FMapUtilsModule::StartupModule()
 
     FMapUtilsTabSpawner::Register();
 
-    UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateStatic(&FMapUtilsActorContextMenu::Register));
+    UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateStatic(&MapUtilsActorContextMenu::Register));
 
     FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
     PropertyEditorModule.RegisterCustomClassLayout(AMeshChainBuilder::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMeshChainBuilderDetails::MakeInstance));
@@ -55,7 +55,7 @@ void FMapUtilsModule::ShutdownModule()
     }
 
     UToolMenus::UnRegisterStartupCallback(this);
-    FMapUtilsActorContextMenu::Unregister();
+    MapUtilsActorContextMenu::Unregister();
     FMapUtilsTabSpawner::Unregister();
 
     if (FModuleManager::Get().IsModuleLoaded("MessageLog"))

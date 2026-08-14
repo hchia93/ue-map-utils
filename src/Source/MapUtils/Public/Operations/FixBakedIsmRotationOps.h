@@ -24,8 +24,7 @@ struct FFixBakedIsmRotationResult
  *
  * Idempotent: re-running on a fixed actor sees non-Identity actor rotation and skips.
  */
-class FFixBakedIsmRotationOps
+namespace FixBakedIsmRotationOps
 {
-public:
-    static FFixBakedIsmRotationResult Fix(const TArray<AActor*>& Actors);
-};
+    FFixBakedIsmRotationResult Fix(const TArray<AActor*>& Actors);
+}

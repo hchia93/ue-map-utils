@@ -41,9 +41,45 @@ namespace
         }
         return Result;
     }
+
+    bool CanReplaceStaticMesh()
+    {
+        return GatherSelectedStaticMeshActors().Num() > 0;
+    }
+
+    void OnReplaceStaticMesh()
+    {
+        const TArray<AStaticMeshActor*> Actors = GatherSelectedStaticMeshActors();
+        if (Actors.IsEmpty())
+        {
+            UE_LOG(LogMapUtils, Warning, TEXT("OnReplaceStaticMesh: no StaticMeshActor selected."));
+            return;
+        }
+
+        FOpenAssetDialogConfig Config;
+        Config.DialogTitleOverride = LOCTEXT("PickerTitle", "Select Replacement StaticMesh");
+        Config.AssetClassNames.Add(UStaticMesh::StaticClass()->GetClassPathName());
+        Config.bAllowMultipleSelection = false;
+
+        FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+        TArray<FAssetData> Picked = CBModule.Get().CreateModalOpenAssetDialog(Config);
+        if (Picked.Num() == 0)
+        {
+            return;
+        }
+
+        UStaticMesh* NewMesh = Cast<UStaticMesh>(Picked[0].GetAsset());
+        if (!NewMesh)
+        {
+            UE_LOG(LogMapUtils, Warning, TEXT("OnReplaceStaticMesh: picked asset is not a StaticMesh."));
+            return;
+        }
+
+        ReplaceStaticMeshOps::ReplaceStaticMesh(Actors, NewMesh);
+    }
 }
 
-void FMapUtilsActorContextMenu::Register()
+void MapUtilsActorContextMenu::Register()
 {
     UToolMenus* ToolMenus = UToolMenus::Get();
     if (!ToolMenus)
@@ -54,61 +90,25 @@ void FMapUtilsActorContextMenu::Register()
     UToolMenu* ActorMenu = ToolMenus->ExtendMenu(ActorContextMenuPath);
     if (!ActorMenu)
     {
-        UE_LOG(LogMapUtils, Warning, TEXT("FMapUtilsActorContextMenu::Register: '%s' not found. Replace StaticMesh available only via Tools menu."), *ActorContextMenuPath.ToString());
+        UE_LOG(LogMapUtils, Warning, TEXT("MapUtilsActorContextMenu::Register: '%s' not found. Replace StaticMesh available only via Tools menu."), *ActorContextMenuPath.ToString());
         return;
     }
 
     FToolMenuSection& Section = ActorMenu->FindOrAddSection(MapUtilsSection, LOCTEXT("MapUtilsSection", "Map Utils"));
 
     FUIAction Action;
-    Action.ExecuteAction = FExecuteAction::CreateStatic(&FMapUtilsActorContextMenu::OnReplaceStaticMesh);
-    Action.CanExecuteAction = FCanExecuteAction::CreateStatic(&FMapUtilsActorContextMenu::CanReplaceStaticMesh);
+    Action.ExecuteAction = FExecuteAction::CreateStatic(&OnReplaceStaticMesh);
+    Action.CanExecuteAction = FCanExecuteAction::CreateStatic(&CanReplaceStaticMesh);
 
     Section.AddMenuEntry(TEXT("ReplaceStaticMesh"), LOCTEXT("ReplaceStaticMesh", "Replace StaticMesh..."), LOCTEXT("ReplaceStaticMeshTooltip", "Pick a StaticMesh asset and apply to all selected StaticMeshActors. Undo-safe."), FSlateIcon(), Action);
 }
 
-void FMapUtilsActorContextMenu::Unregister()
+void MapUtilsActorContextMenu::Unregister()
 {
     if (UToolMenus* ToolMenus = UToolMenus::Get())
     {
         ToolMenus->RemoveSection(ActorContextMenuPath, MapUtilsSection);
     }
-}
-
-bool FMapUtilsActorContextMenu::CanReplaceStaticMesh()
-{
-    return GatherSelectedStaticMeshActors().Num() > 0;
-}
-
-void FMapUtilsActorContextMenu::OnReplaceStaticMesh()
-{
-    const TArray<AStaticMeshActor*> Actors = GatherSelectedStaticMeshActors();
-    if (Actors.IsEmpty())
-    {
-        UE_LOG(LogMapUtils, Warning, TEXT("OnReplaceStaticMesh: no StaticMeshActor selected."));
-        return;
-    }
-
-    FOpenAssetDialogConfig Config;
-    Config.DialogTitleOverride = LOCTEXT("PickerTitle", "Select Replacement StaticMesh");
-    Config.AssetClassNames.Add(UStaticMesh::StaticClass()->GetClassPathName());
-    Config.bAllowMultipleSelection = false;
-
-    FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-    TArray<FAssetData> Picked = CBModule.Get().CreateModalOpenAssetDialog(Config);
-    if (Picked.Num() == 0)
-    {
-        return;
-    }
-
-    UStaticMesh* NewMesh = Cast<UStaticMesh>(Picked[0].GetAsset());
-    if (!NewMesh)
-    {
-        UE_LOG(LogMapUtils, Warning, TEXT("OnReplaceStaticMesh: picked asset is not a StaticMesh."));
-        return;
-    }
-
-    FReplaceStaticMeshOps::ReplaceStaticMesh(Actors, NewMesh);
 }
 
 #undef LOCTEXT_NAMESPACE

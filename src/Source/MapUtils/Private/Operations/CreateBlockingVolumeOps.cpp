@@ -258,7 +258,7 @@ namespace
     }
 }
 
-FBlockingVolumeWrapResult FCreateBlockingVolumeOps::CreateBlockingVolumeForActors(const TArray<AActor*>& Actors)
+FBlockingVolumeWrapResult CreateBlockingVolumeOps::CreateBlockingVolumeForActors(const TArray<AActor*>& Actors)
 {
     FBlockingVolumeWrapResult Result;
 

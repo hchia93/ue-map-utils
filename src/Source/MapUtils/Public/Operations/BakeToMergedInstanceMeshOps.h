@@ -28,8 +28,7 @@ struct FBakeMergedInstanceResult
  * Anything else (Blueprint actors with logic, etc.) is skipped to avoid clobbering scripted
  * actors. Designed to replace UE's Group Actor workflow for static decoration.
  */
-class FBakeToMergedInstanceMeshOps
+namespace BakeToMergedInstanceMeshOps
 {
-public:
-    static FBakeMergedInstanceResult BakeToMergedInstanceMesh(const TArray<AActor*>& Actors);
-};
+    FBakeMergedInstanceResult BakeToMergedInstanceMesh(const TArray<AActor*>& Actors);
+}

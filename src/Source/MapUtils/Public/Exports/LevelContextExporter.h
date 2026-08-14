@@ -11,15 +11,11 @@ struct FLevelContextExportResult
     bool bSuccess = false;
 };
 
-class FLevelContextExporter
+namespace LevelContextExporter
 {
-public:
     /** Export current level's StaticMeshActor refs (actor / mesh path / transform / materials / bounds). */
-    static FLevelContextExportResult ExportStaticMeshContext(UWorld* World);
+    FLevelContextExportResult ExportStaticMeshContext(UWorld* World);
 
     /** Export current level's collision candidates (hidden + collision enabled bias, but records all non-NoCollision). */
-    static FLevelContextExportResult ExportCollisionContext(UWorld* World);
-
-private:
-    static FString MakeOutputPath(const FString& Topic, UWorld* World);
-};
+    FLevelContextExportResult ExportCollisionContext(UWorld* World);
+}

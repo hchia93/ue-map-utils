@@ -69,7 +69,7 @@ namespace
     }
 }
 
-void FMapUtilsActions::AuditCurrentLevel()
+void MapUtilsActions::AuditCurrentLevel()
 {
     UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
     if (!World)
@@ -120,7 +120,7 @@ void FMapUtilsActions::AuditCurrentLevel()
     UE_LOG(LogMapUtils, Log, TEXT("AuditCurrentLevel: %d issue(s) found in %s"), IssueCount, *World->GetMapName());
 }
 
-void FMapUtilsActions::CreateBlockingVolumeFromSelection()
+void MapUtilsActions::CreateBlockingVolumeFromSelection()
 {
     const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
@@ -134,7 +134,7 @@ void FMapUtilsActions::CreateBlockingVolumeFromSelection()
         return;
     }
 
-    const FBlockingVolumeWrapResult Result = FCreateBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
+    const FBlockingVolumeWrapResult Result = CreateBlockingVolumeOps::CreateBlockingVolumeForActors(Actors);
 
     if (Result.bSuccess)
     {
@@ -150,7 +150,7 @@ void FMapUtilsActions::CreateBlockingVolumeFromSelection()
     }
 }
 
-void FMapUtilsActions::BakeSelectedToInstanceMesh()
+void MapUtilsActions::BakeSelectedToInstanceMesh()
 {
     const TArray<AStaticMeshActor*> Actors = GatherSelectedSMA();
 
@@ -164,7 +164,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh()
         return;
     }
 
-    const FBakeInstanceResult Result = FBakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
+    const FBakeInstanceResult Result = BakeToInstanceMeshOps::BakeToInstanceMesh(Actors);
 
     if (Result.bSuccess)
     {
@@ -190,7 +190,7 @@ void FMapUtilsActions::BakeSelectedToInstanceMesh()
     }
 }
 
-void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
+void MapUtilsActions::BakeSelectedToMergedInstanceMesh()
 {
     const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
@@ -204,7 +204,7 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
         return;
     }
 
-    const FBakeMergedInstanceResult Result = FBakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
+    const FBakeMergedInstanceResult Result = BakeToMergedInstanceMeshOps::BakeToMergedInstanceMesh(Actors);
 
     if (Result.bUserCancelled)
     {
@@ -224,7 +224,7 @@ void FMapUtilsActions::BakeSelectedToMergedInstanceMesh()
     }
 }
 
-void FMapUtilsActions::FixBakedIsmRotation()
+void MapUtilsActions::FixBakedIsmRotation()
 {
     const TArray<AActor*> Actors = GatherSelectedActorsAny();
 
@@ -238,7 +238,7 @@ void FMapUtilsActions::FixBakedIsmRotation()
         return;
     }
 
-    const FFixBakedIsmRotationResult Result = FFixBakedIsmRotationOps::Fix(Actors);
+    const FFixBakedIsmRotationResult Result = FixBakedIsmRotationOps::Fix(Actors);
 
     if (Result.FixedActorCount > 0)
     {
@@ -266,7 +266,7 @@ void FMapUtilsActions::FixBakedIsmRotation()
     }
 }
 
-void FMapUtilsActions::ExportStaticMeshContext()
+void MapUtilsActions::ExportStaticMeshContext()
 {
     UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
     if (!World)
@@ -275,7 +275,7 @@ void FMapUtilsActions::ExportStaticMeshContext()
         return;
     }
 
-    const FLevelContextExportResult Result = FLevelContextExporter::ExportStaticMeshContext(World);
+    const FLevelContextExportResult Result = LevelContextExporter::ExportStaticMeshContext(World);
 
     FMessageLog Log(MapUtilsLogName);
     Log.NewPage(LOCTEXT("ExportStaticMeshPage", "Export StaticMesh Context"));
@@ -292,7 +292,7 @@ void FMapUtilsActions::ExportStaticMeshContext()
     }
 }
 
-void FMapUtilsActions::ExportCollisionContext()
+void MapUtilsActions::ExportCollisionContext()
 {
     UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
     if (!World)
@@ -301,7 +301,7 @@ void FMapUtilsActions::ExportCollisionContext()
         return;
     }
 
-    const FLevelContextExportResult Result = FLevelContextExporter::ExportCollisionContext(World);
+    const FLevelContextExportResult Result = LevelContextExporter::ExportCollisionContext(World);
 
     FMessageLog Log(MapUtilsLogName);
     Log.NewPage(LOCTEXT("ExportCollisionPage", "Export Collision Context"));
@@ -318,7 +318,7 @@ void FMapUtilsActions::ExportCollisionContext()
     }
 }
 
-FString FMapUtilsActions::GetLevelDisplayName(UWorld* World, ULevel* Level)
+FString MapUtilsActions::GetLevelDisplayName(UWorld* World, ULevel* Level)
 {
     if (!Level)
     {

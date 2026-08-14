@@ -81,17 +81,17 @@ namespace
 
         return FFileHelper::SaveStringToFile(Output, *FilePath);
     }
+
+    FString MakeOutputPath(const FString& Topic, UWorld* World)
+    {
+        const FString LevelName = World ? World->GetMapName() : TEXT("unknown");
+        const FString Timestamp = FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
+        const FString FileName = FString::Printf(TEXT("%s-%s-%s.json"), *Topic, *LevelName, *Timestamp);
+        return FPaths::ProjectIntermediateDir() / TEXT("LevelContext") / FileName;
+    }
 }
 
-FString FLevelContextExporter::MakeOutputPath(const FString& Topic, UWorld* World)
-{
-    const FString LevelName = World ? World->GetMapName() : TEXT("unknown");
-    const FString Timestamp = FDateTime::Now().ToString(TEXT("%Y%m%d-%H%M%S"));
-    const FString FileName = FString::Printf(TEXT("%s-%s-%s.json"), *Topic, *LevelName, *Timestamp);
-    return FPaths::ProjectIntermediateDir() / TEXT("LevelContext") / FileName;
-}
-
-FLevelContextExportResult FLevelContextExporter::ExportStaticMeshContext(UWorld* World)
+FLevelContextExportResult LevelContextExporter::ExportStaticMeshContext(UWorld* World)
 {
     FLevelContextExportResult Result;
 
@@ -181,7 +181,7 @@ FLevelContextExportResult FLevelContextExporter::ExportStaticMeshContext(UWorld*
     return Result;
 }
 
-FLevelContextExportResult FLevelContextExporter::ExportCollisionContext(UWorld* World)
+FLevelContextExportResult LevelContextExporter::ExportCollisionContext(UWorld* World)
 {
     FLevelContextExportResult Result;
 

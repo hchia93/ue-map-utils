@@ -12,8 +12,7 @@ struct FReplaceResult
     bool bSuccess = false;
 };
 
-class FReplaceStaticMeshOps
+namespace ReplaceStaticMeshOps
 {
-public:
-    static FReplaceResult ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh);
-};
+    FReplaceResult ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh);
+}

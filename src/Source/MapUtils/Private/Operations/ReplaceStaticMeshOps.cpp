@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "ReplaceStaticMeshOps"
 
-FReplaceResult FReplaceStaticMeshOps::ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh)
+FReplaceResult ReplaceStaticMeshOps::ReplaceStaticMesh(const TArray<AStaticMeshActor*>& Actors, UStaticMesh* NewMesh)
 {
     FReplaceResult Result;
 

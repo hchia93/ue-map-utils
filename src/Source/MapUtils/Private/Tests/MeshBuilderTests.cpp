@@ -55,7 +55,7 @@ namespace MeshBuilderTestsLocal
         return LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
     }
 
-    // Build a profile with a freshly minted GUID and the given mesh. The chain / arc builders auto-assign
+    // Build a profile with a freshly generated GUID and the given mesh. The chain / arc builders auto-assign
     // GUIDs via RegenerateProfileIds, but tests need to know the id up front to reference Steps.
     static FMeshBuilderProfile MakeProfile(UStaticMesh* Mesh, EMeshOrientation Orient = EMeshOrientation::X)
     {

@@ -12,8 +12,7 @@ struct FMoveResult
     bool bSuccess = false;
 };
 
-class FMoveActorsToLevelOps
+namespace MoveActorsToLevelOps
 {
-public:
-    static FMoveResult MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel);
-};
+    FMoveResult MoveActorsToLevel(const TArray<AActor*>& Actors, ULevel* DestLevel);
+}
